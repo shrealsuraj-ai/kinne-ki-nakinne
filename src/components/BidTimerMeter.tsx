@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Clock } from 'lucide-react';
 
-export default function BidTimerMeter() {
+export default function BidTimerMeter({ isStarted = false }: { isStarted?: boolean }) {
   const [timeLeft, setTimeLeft] = useState(165); // 02:45 remaining in seconds
   
   useEffect(() => {
+    if (!isStarted) return;
     const timer = setInterval(() => {
       setTimeLeft(prev => prev > 0 ? prev - 1 : 0);
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isStarted]);
 
   const totalTime = 300; // Let's say 5 minutes total
   const remainingPercentage = Math.max(0, (timeLeft / totalTime) * 100);

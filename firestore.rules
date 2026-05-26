@@ -45,7 +45,7 @@ service cloud.firestore {
              data.sellerId == request.auth.uid &&
              data.title is string && data.title.size() <= 200 &&
              data.price is number && data.price >= 0 &&
-             data.segment in ['feed', 'arena', 'remarket'] &&
+             data.segment is string && data.segment.size() <= 100 &&
              data.type in ['video', 'image', 'slideshow'] &&
              data.createdAt == request.time;
     }

@@ -6,6 +6,8 @@ import { collection, query, orderBy, onSnapshot, setDoc, doc, addDoc, serverTime
 import { db } from './lib/firebase';
 import AuthModal from './components/AuthModal';
 import ProfileDashboard from './components/ProfileDashboard';
+import DomainSelectorModal from './components/DomainSelectorModal';
+import { DOMAINS } from './lib/domains';
 
 import ProductUploadModal from './components/ProductUploadModal';
 import InboxPanel from './components/chat/InboxPanel';
@@ -17,9 +19,8 @@ import SellerRating from './components/SellerRating';
 import SellerProfileModal from './components/SellerProfileModal';
 import BuyMeter from './components/BuyMeter';
 import BidTimerMeter from './components/BidTimerMeter';
+import LiveBroadcastFeed from './components/LiveBroadcastFeed';
 
-
-const DUMMY_VIDEOS: any[] = [];
 
 const VideoPlayer = ({ src, isMuted, setIsMuted }: { src: string, isMuted: boolean, setIsMuted: (muted: boolean) => void }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -42,7 +43,12 @@ const VideoPlayer = ({ src, isMuted, setIsMuted }: { src: string, isMuted: boole
     // If controls hide, make sure we reflect real playing state
     if (videoRef.current) {
       if (isPlaying && videoRef.current.paused) {
-        videoRef.current.play().catch(e => console.error(e));
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(e => {
+            if (e.name !== 'AbortError') console.error("Playback error:", e);
+          });
+        }
       } else if (!isPlaying && !videoRef.current.paused) {
         videoRef.current.pause();
       }
@@ -250,7 +256,7 @@ const MediaSlideshow = ({ urls }: { urls: string[] }) => {
 };
 
 export default function App() {
-  const [videos, setVideos] = useState<any[]>(DUMMY_VIDEOS);
+  const [videos, setVideos] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(1); // 1 = down/next, -1 = up/prev
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -335,7 +341,9 @@ export default function App() {
   const { user, signOut, activeProfile, userRole } = useAuth();
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   
-  const [activeSegment, setActiveSegment] = useState<'feed' | 'arena' | 'remarket'>('feed');
+  const [activeDomainId, setActiveDomainId] = useState<string>('kinne');
+  const [isDomainSelectorOpen, setIsDomainSelectorOpen] = useState(false);
+  const [activeSegment, setActiveSegment] = useState<string>('feed');
   const [isMuted, setIsMuted] = useState(true);
 
   useEffect(() => {
@@ -374,6 +382,7 @@ export default function App() {
   
   // Prevent out of bounds
   const currentItem = displayedVideos.length > 0 ? displayedVideos[currentIndex % displayedVideos.length] : null;
+  const isCurrentUserSeller = user && currentItem?.sellerId === user.uid;
 
   const [currentHighestBid, setCurrentHighestBid] = useState(0);
   const [bidAmount, setBidAmount] = useState(0);
@@ -573,28 +582,19 @@ export default function App() {
         <div className="absolute top-0 w-full z-20 flex justify-between items-center p-4 pt-6 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
           <div className="flex items-center gap-2 pointer-events-auto">
             <div className="w-6 h-6 bg-gradient-to-tr from-emerald-500 to-teal-500 rounded flex items-center justify-center font-black text-white text-xs shadow-lg shadow-emerald-500/30">?</div>
-            <div className="hidden sm:block text-lg font-extrabold tracking-tight text-white drop-shadow-md">Kinne Ki Nakinne?</div>
+            <div className="hidden sm:block text-lg font-extrabold tracking-tight text-white drop-shadow-md">{DOMAINS.find(d => d.id === activeDomainId)?.name}</div>
           </div>
           <div className="flex gap-4 items-center font-bold pointer-events-auto bg-black/40 rounded-full backdrop-blur-md border border-white/10 max-w-[50%] overflow-x-auto hide-scrollbar" style={{ marginLeft: '0px', paddingLeft: '2px', paddingRight: '17px', paddingTop: '6px', paddingBottom: '6px', fontSize: '12px' }}>
-            <button 
-              onClick={() => { setActiveSegment('feed'); setCurrentIndex(0); }}
-              className={`transition-colors whitespace-nowrap ${activeSegment === 'feed' ? 'text-emerald-400 drop-shadow-md' : 'text-white/70 hover:text-white'}`}
-            >
-              Products
-            </button>
-            <button 
-              onClick={() => { setActiveSegment('arena'); setCurrentIndex(0); }}
-              className={`transition-colors flex items-center gap-1 whitespace-nowrap ${activeSegment === 'arena' ? 'text-rose-500 drop-shadow-md' : 'text-white/70 hover:text-white'}`}
-            >
-              {activeSegment === 'arena' && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />}
-              Auction
-            </button>
-            <button 
-              onClick={() => { setActiveSegment('remarket'); setCurrentIndex(0); }}
-              className={`transition-colors whitespace-nowrap ${activeSegment === 'remarket' ? 'text-amber-400 drop-shadow-md' : 'text-white/70 hover:text-white'}`}
-            >
-              Second Hand or Refurbished
-            </button>
+            {DOMAINS.find(d => d.id === activeDomainId)?.segments.map(seg => (
+              <button 
+                key={seg.id}
+                onClick={() => { setActiveSegment(seg.id); setCurrentIndex(0); }}
+                className={`transition-colors whitespace-nowrap flex items-center gap-1 ${activeSegment === seg.id ? `text-${seg.color}-400 drop-shadow-md` : 'text-white/70 hover:text-white'}`}
+              >
+                {activeSegment === seg.id && seg.id === 'arena' && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />}
+                {seg.label}
+              </button>
+            ))}
           </div>
           
           <div className="flex gap-2 items-center pointer-events-auto">
@@ -640,7 +640,9 @@ export default function App() {
               }}
             >
               {/* Product Media */}
-              {currentItem.type === 'slideshow' && currentItem.mediaUrls ? (
+              {activeSegment === 'arena' && currentItem.auctionStarted ? (
+                 <LiveBroadcastFeed isMuted={isMuted} setIsMuted={setIsMuted} isBroadcaster={user?.id === currentItem.sellerId} />
+              ) : currentItem.type === 'slideshow' && currentItem.mediaUrls ? (
                 <MediaSlideshow urls={currentItem.mediaUrls} />
               ) : currentItem.type === 'video' || (currentItem.url && (currentItem.url.includes('firebasestorage') || currentItem.url.includes('127.0.0.1') || currentItem.url.includes('googleapis') || currentItem.url.includes('.mp4'))) ? (
                 <VideoPlayer 
@@ -707,13 +709,20 @@ export default function App() {
 
           <div className="flex flex-col items-center gap-1">
             <button 
-              onClick={() => setIsCheckoutOpen(true)}
-              className={`rounded-full ${activeSegment === 'arena' ? 'bg-gradient-to-tr from-rose-500 to-red-600 shadow-rose-500/40' : 'bg-gradient-to-tr from-emerald-500 to-teal-500 shadow-emerald-500/40'} flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-xl block border-2 border-white`}
+              onClick={async () => {
+                if (activeSegment === 'arena' && !isCurrentUserSeller && (!currentItem || !currentItem.auctionStarted)) {
+                    alert("Auction has not started yet.");
+                    return;
+                }
+                setIsCheckoutOpen(true);
+              }}
+              className={`rounded-full ${activeSegment === 'arena' ? 'bg-gradient-to-tr from-rose-500 to-red-600 shadow-rose-500/40' : 'bg-gradient-to-tr from-emerald-500 to-teal-500 shadow-emerald-500/40'} flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-xl block border-2 border-white disabled:opacity-50 disabled:hover:scale-100`}
+              disabled={activeSegment === 'arena' && !isCurrentUserSeller && (!currentItem || !currentItem.auctionStarted)}
               style={{ width: '53px', height: '48px' }}
             >
               <ShoppingCart className="w-5 h-5 text-white" />
             </button>
-            <span className={`text-[10px] font-black ${activeSegment === 'arena' ? 'text-rose-400' : 'text-emerald-400'} drop-shadow-lg`}>{activeSegment === 'arena' ? 'BID NOW' : 'KINNE!'}</span>
+            <span className={`text-[10px] font-black ${activeSegment === 'arena' ? 'text-rose-400' : 'text-emerald-400'} drop-shadow-lg`}>{activeSegment === 'arena' ? 'BID NOW' : (DOMAINS.find(d => d.id === activeDomainId)?.primaryAction || 'KINNE!')}</span>
           </div>
 
           <div className="flex flex-col items-center gap-1">
@@ -758,9 +767,14 @@ export default function App() {
                   ) : (
                      <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 text-sm drop-shadow-sm">NPR {currentItem.price}</span>
                   )}
-                  {activeSegment === 'arena' && (
+                  {activeSegment === 'arena' && currentItem.auctionStarted && (
                     <span className="bg-rose-600 px-1.5 py-0.5 rounded text-[8px] font-black animate-pulse text-white shadow-lg shadow-rose-600/50">
                        02:45 LEFT
+                    </span>
+                  )}
+                  {activeSegment === 'arena' && !currentItem.auctionStarted && (
+                    <span className="bg-slate-600 px-1.5 py-0.5 rounded text-[8px] font-black text-white shadow-lg shadow-slate-600/50">
+                       WAITING...
                     </span>
                   )}
                   {activeSegment === 'feed' && currentItem.isFlashSale && (
@@ -773,10 +787,31 @@ export default function App() {
             </div>
             
             <button 
-              onClick={() => setIsCheckoutOpen(true)}
-              className={`${activeSegment === 'arena' ? 'bg-gradient-to-r from-rose-500 to-red-600 shadow-rose-500/30' : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30'} text-white px-5 py-2 rounded-xl text-xs font-black tracking-wide shadow-lg hover:opacity-90 active:scale-95 transition-all shrink-0`}
+              onClick={async () => {
+                if (activeSegment === 'arena' && isCurrentUserSeller) {
+                    if (currentItem && !currentItem.auctionStarted) {
+                      try {
+                        await updateDoc(doc(db, 'products', currentItem.id), {
+                          auctionStarted: true,
+                          auctionStartedAt: serverTimestamp()
+                        });
+                        alert("Auction Started!");
+                      } catch (err) {
+                        console.error('Failed to start auction:', err);
+                      }
+                    } else if (currentItem && currentItem.auctionStarted) {
+                      alert("Auction is already live!");
+                    }
+                } else if (activeSegment === 'arena' && !isCurrentUserSeller && (!currentItem || !currentItem.auctionStarted)) {
+                    alert("Auction has not started yet. Please wait for the seller to start it.");
+                } else {
+                    setIsCheckoutOpen(true);
+                }
+              }}
+              className={`${activeSegment === 'arena' ? 'bg-gradient-to-r from-rose-500 to-red-600 shadow-rose-500/30' : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30'} text-white px-5 py-2 rounded-xl text-xs font-black tracking-wide shadow-lg hover:opacity-90 active:scale-95 transition-all shrink-0 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed`}
+              disabled={activeSegment === 'arena' && !isCurrentUserSeller && (!currentItem || !currentItem.auctionStarted)}
             >
-              {activeSegment === 'arena' ? 'PLACE BID' : 'KINNE!'}
+              {activeSegment === 'arena' ? (isCurrentUserSeller ? (currentItem?.auctionStarted ? 'AUCTION LIVE' : 'START AUCTION') : 'PLACE BID') : (DOMAINS.find(d => d.id === activeDomainId)?.primaryAction || 'KINNE!')}
             </button>
           </div>
         </div>
@@ -927,8 +962,16 @@ export default function App() {
                    <motion.button 
                      ref={addToCartButtonRef}
                      whileTap={{ scale: 0.95 }}
-                     onClick={handleAddToCartClick}
-                     className={`w-full ${activeSegment === 'arena' ? 'bg-gradient-to-r from-rose-500 to-red-600 shadow-rose-500/30' : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30'} text-white font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-xl hover:opacity-90 active:scale-95 transition-all`}
+                     onClick={(e) => {
+                       if (activeSegment === 'arena' && (!currentItem || !currentItem.auctionStarted) && !isCurrentUserSeller) {
+                           e.preventDefault();
+                           alert("Auction has not started yet.");
+                           return;
+                       }
+                       handleAddToCartClick(e);
+                     }}
+                     className={`w-full ${activeSegment === 'arena' ? 'bg-gradient-to-r from-rose-500 to-red-600 shadow-rose-500/30' : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30'} text-white font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-xl hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed`}
+                     disabled={activeSegment === 'arena' && !isCurrentUserSeller && (!currentItem || !currentItem.auctionStarted)}
                    >
                      {activeSegment === 'arena' ? 'CONFIRM BID' : 'ADD TO CART'} <ChevronRight className="w-5 h-5" />
                    </motion.button>
@@ -945,7 +988,7 @@ export default function App() {
             <Home className="w-5 h-5 opacity-90" />
             <span className="text-[9px] font-bold">Home</span>
           </button>
-          <button className="flex flex-col items-center gap-1 text-slate-500 hover:text-white transition">
+          <button onClick={() => setIsDomainSelectorOpen(true)} className="flex flex-col items-center gap-1 text-slate-500 hover:text-white transition">
             <Search className="w-5 h-5 opacity-90" />
             <span className="text-[9px] font-bold">Discover</span>
           </button>
@@ -1036,7 +1079,7 @@ export default function App() {
                        </div>
                     )}
                  </div>
-                 {activeSegment === 'arena' ? <BidTimerMeter /> : <BuyMeter productId={currentItem.id} />}
+                 {activeSegment === 'arena' ? <BidTimerMeter isStarted={currentItem.auctionStarted} /> : <BuyMeter productId={currentItem.id} />}
               </div>
             </motion.div>
           )}
@@ -1044,6 +1087,16 @@ export default function App() {
 
         {/* Auth Modal UI */}
         <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+        <DomainSelectorModal
+          isOpen={isDomainSelectorOpen}
+          onClose={() => setIsDomainSelectorOpen(false)}
+          activeDomainId={activeDomainId}
+          onSelectDomain={(domainId, firstSegment) => {
+            setActiveDomainId(domainId);
+            setActiveSegment(firstSegment);
+            setIsDomainSelectorOpen(false);
+          }}
+        />
         <ProfileDashboard 
            isOpen={isProfileDashboardOpen && !!user} 
            onClose={() => {
@@ -1056,7 +1109,7 @@ export default function App() {
            videos={videos}
            onToggleWishlist={(id) => toggleWishlist(id)}
         />
-        <ProductUploadModal isOpen={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} />
+        <ProductUploadModal isOpen={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} activeDomainId={activeDomainId} />
         <SellerProfileModal 
            isOpen={isSellerProfileOpen} 
            onClose={() => setIsSellerProfileOpen(false)} 

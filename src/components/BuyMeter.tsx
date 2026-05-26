@@ -27,16 +27,8 @@ export default function BuyMeter({ productId }: { productId: string }) {
     return () => unsubscribe();
   }, [productId]);
 
-  // Generate a realistic looking fallback simulation if no real reviews
-  // Simulating large numbers for the exact visual of the requested picture (e.g. 3854 evaluations)
-  const isMock = totalEvaluations === 0;
-  
-  // Fake the numbers for visual presentation based on product ID character hash to keep it consistent
-  const simulatedTotal = isMock ? productId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) * 12 + 1000 : totalEvaluations;
-  const simulatedPositive = isMock ? Math.floor(simulatedTotal * 0.8) : positiveCount;
-
-  const displayTotal = isMock ? simulatedTotal : totalEvaluations;
-  const displayPositive = isMock ? simulatedPositive : positiveCount;
+  const displayTotal = totalEvaluations;
+  const displayPositive = positiveCount;
 
   const scorePercentage = displayTotal > 0 ? (displayPositive / displayTotal) * 100 : 50;
 

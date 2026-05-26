@@ -85,7 +85,7 @@ export default function SellerRating({ sellerId, compact = false }: { sellerId: 
 
       <AnimatePresence>
         {isModalOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-full max-w-sm">
               <h3 className="text-lg font-bold text-white mb-4">Review Seller</h3>
               

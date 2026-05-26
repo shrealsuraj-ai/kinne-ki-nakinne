@@ -135,7 +135,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center">
+    <div className="absolute inset-0 z-[100] bg-black flex flex-col items-center justify-center">
       {/* Header */}
       <div className="absolute top-0 inset-x-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/80 to-transparent">
         <button onClick={onClose} className="p-2 bg-white/20 rounded-full backdrop-blur hover:bg-white/30 transition">

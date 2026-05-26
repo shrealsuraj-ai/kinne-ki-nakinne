@@ -6,19 +6,23 @@ import { db } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
 import CameraCapture from './CameraCapture';
 
+import { DOMAINS } from '../lib/domains';
+
 interface ProductUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
+  activeDomainId: string;
 }
 
-export default function ProductUploadModal({ isOpen, onClose }: ProductUploadModalProps) {
+export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: ProductUploadModalProps) {
   const { user, activeProfile } = useAuth();
   
   const [step, setStep] = useState(1);
   const totalSteps = 5;
 
   // Form State
-  const [segment, setSegment] = useState<'feed' | 'arena' | 'remarket'>('feed');
+  const activeDomain = useMemo(() => DOMAINS.find(d => d.id === activeDomainId) || DOMAINS[0], [activeDomainId]);
+  const [segment, setSegment] = useState<string>(activeDomain.segments[0].id);
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   
@@ -134,7 +138,7 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
   };
 
   const nextStep = () => {
-    if (step === 1 && mediaFiles.length === 0) {
+    if (step === 1 && mediaFiles.length === 0 && segment !== 'arena') {
         setError("Please upload at least one video or image to continue.");
         return;
     }
@@ -159,7 +163,7 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
       return;
     }
     
-    if (mediaFiles.length === 0 || !title || !price) {
+    if ((segment !== 'arena' && mediaFiles.length === 0) || !title || !price) {
       setError('Please fill all required fields and select at least one media file.');
       return;
     }
@@ -299,11 +303,14 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
         }));
 
         try {
-          await updateDoc(doc(db, 'products', productRef.id), {
-            url: generatedUrls[0], // Keep backward compatibility
+          const updateData: any = {
             mediaUrls: generatedUrls, // Support slideshow
             uploadStatus: 'completed'
-          });
+          };
+          if (generatedUrls.length > 0) {
+             updateData.url = generatedUrls[0];
+          }
+          await updateDoc(doc(db, 'products', productRef.id), updateData);
 
           setLoading(false);
           // Reset form
@@ -334,7 +341,7 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
       <AnimatePresence>
         <motion.div 
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
+          className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
         >
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center max-w-sm w-full relative">
             <button onClick={onClose} className="absolute right-4 top-4 p-2 bg-slate-800 rounded-full text-slate-400">
@@ -366,28 +373,32 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
                 className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition relative group ${
                   isDragging ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-800/30 hover:border-emerald-500/50 hover:bg-slate-800/50'
                 }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
+                onDragOver={segment !== 'arena' ? handleDragOver : undefined}
+                onDragLeave={segment !== 'arena' ? handleDragLeave : undefined}
+                onDrop={segment !== 'arena' ? handleDrop : undefined}
               >
                 {mediaFiles.length === 0 ? (
                    <div className="flex flex-col items-center w-full">
-                     <div 
-                        className="flex flex-col items-center cursor-pointer w-full py-4 mb-2 hover:bg-slate-800/50 rounded-xl transition"
-                        onClick={() => fileInputRef.current?.click()}
-                     >
-                       <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition">
-                         <UploadCloud className="w-6 h-6 text-emerald-400" />
-                       </div>
-                       <p className="text-sm font-bold text-white mb-1">Upload Media from File</p>
-                       <p className="text-xs text-slate-500">Drag & drop or click to browse files</p>
-                     </div>
-                     
-                     <div className="flex items-center w-full my-2">
-                       <div className="flex-1 border-t border-slate-700"></div>
-                       <span className="px-3 text-xs text-slate-500 font-bold uppercase">OR</span>
-                       <div className="flex-1 border-t border-slate-700"></div>
-                     </div>
+                     {segment !== 'arena' && (
+                       <>
+                         <div 
+                            className="flex flex-col items-center cursor-pointer w-full py-4 mb-2 hover:bg-slate-800/50 rounded-xl transition"
+                            onClick={() => fileInputRef.current?.click()}
+                         >
+                           <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition">
+                             <UploadCloud className="w-6 h-6 text-emerald-400" />
+                           </div>
+                           <p className="text-sm font-bold text-white mb-1">Upload Media from File</p>
+                           <p className="text-xs text-slate-500">Drag & drop or click to browse files</p>
+                         </div>
+                         
+                         <div className="flex items-center w-full my-2">
+                           <div className="flex-1 border-t border-slate-700"></div>
+                           <span className="px-3 text-xs text-slate-500 font-bold uppercase">OR</span>
+                           <div className="flex-1 border-t border-slate-700"></div>
+                         </div>
+                       </>
+                     )}
 
                      <div 
                         className="flex flex-col items-center cursor-pointer w-full py-4 mt-2 hover:bg-slate-800/50 rounded-xl transition"
@@ -396,7 +407,7 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
                        <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition">
                          <Camera className="w-6 h-6 text-blue-400" />
                        </div>
-                       <p className="text-sm font-bold text-white mb-1">Open Camera</p>
+                       <p className="text-sm font-bold text-white mb-1">{segment === 'arena' ? 'Start Live Camera' : 'Open Camera'}</p>
                        <p className="text-xs text-slate-500">Take a photo or record video</p>
                      </div>
                    </div>
@@ -441,14 +452,11 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">2. Listing Type *</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {[
-                  { id: 'feed', label: 'Products', info: 'Standard Sales', color: 'emerald' },
-                  { id: 'arena', label: 'Auction', info: 'Live Bidding', color: 'rose' },
-                  { id: 'remarket', label: 'Second Hand', info: 'Used/Refurbished', color: 'amber' }
-                ].map(type => (
-                  <div key={type.id} onClick={() => setSegment(type.id as any)} className={`p-3 rounded-xl border cursor-pointer transition flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-2 ${segment === type.id ? `bg-${type.color}-500/20 border-${type.color}-500` : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}>
+                {activeDomain.segments.map(type => (
+                  <div key={type.id} onClick={() => {
+                    setSegment(type.id);
+                  }} className={`p-3 rounded-xl border cursor-pointer transition flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-2 ${segment === type.id ? `bg-${type.color}-500/20 border-${type.color}-500` : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}>
                     <span className={`text-sm font-bold ${segment === type.id ? `text-${type.color}-400` : 'text-slate-300'}`}>{type.label}</span>
-                    <span className="text-[10px] text-slate-400">{type.info}</span>
                   </div>
                 ))}
               </div>
@@ -635,7 +643,7 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
   return (
     <>
     <AnimatePresence>
-      <div className="fixed inset-0 z-[60] flex flex-col pointer-events-none">
+      <div className="absolute inset-0 z-[60] flex flex-col pointer-events-none">
         <motion.div 
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           onClick={!loading ? onClose : undefined}

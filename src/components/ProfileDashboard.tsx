@@ -118,7 +118,7 @@ export default function ProfileDashboard({ isOpen, onClose, onProductClick, view
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 350, damping: 40 }}
-            className="fixed inset-0 w-full h-full bg-slate-950 z-50 flex flex-col pointer-events-auto"
+            className="absolute inset-0 w-full h-full bg-slate-950 z-50 flex flex-col pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

@@ -117,7 +117,7 @@ export default function ChatPanel({ isOpen, onClose, conversationId, otherUser }
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[70] flex flex-col pointer-events-none">
+      <div className="absolute inset-0 z-[70] flex flex-col pointer-events-none">
         <motion.div 
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           className="absolute inset-0 bg-black/80 backdrop-blur-md pointer-events-auto"
