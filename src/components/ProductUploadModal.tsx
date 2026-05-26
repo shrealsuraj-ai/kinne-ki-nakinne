@@ -1,9 +1,10 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, UploadCloud, Video, AlertCircle, ChevronRight, ChevronLeft, Sparkles, CheckCircle2 } from 'lucide-react';
+import { X, UploadCloud, Video, AlertCircle, ChevronRight, ChevronLeft, Sparkles, CheckCircle2, Camera } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import CameraCapture from './CameraCapture';
 
 interface ProductUploadModalProps {
   isOpen: boolean;
@@ -44,8 +45,10 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const listingQualityScore = useMemo(() => {
     let score = 0;
@@ -357,6 +360,7 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">1. Product Media *</label>
               <input type="file" accept="video/*,image/*" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+              <input type="file" accept="video/*,image/*" capture="environment" ref={cameraInputRef} className="hidden" onChange={handleFileChange} />
               
               <div 
                 className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition relative group ${
@@ -365,16 +369,36 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                onClick={mediaFiles.length === 0 ? () => fileInputRef.current?.click() : undefined}
               >
                 {mediaFiles.length === 0 ? (
-                   <div className="flex flex-col items-center cursor-pointer">
-                     <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition">
-                       <UploadCloud className="w-6 h-6 text-emerald-400" />
+                   <div className="flex flex-col items-center w-full">
+                     <div 
+                        className="flex flex-col items-center cursor-pointer w-full py-4 mb-2 hover:bg-slate-800/50 rounded-xl transition"
+                        onClick={() => fileInputRef.current?.click()}
+                     >
+                       <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition">
+                         <UploadCloud className="w-6 h-6 text-emerald-400" />
+                       </div>
+                       <p className="text-sm font-bold text-white mb-1">Upload Media from File</p>
+                       <p className="text-xs text-slate-500">Drag & drop or click to browse files</p>
                      </div>
-                     <p className="text-sm font-bold text-white mb-1">Drag and drop media here</p>
-                     <p className="text-xs text-slate-500">MP4, WebM, JPG, PNG up to 50MB</p>
-                     <p className="text-xs font-bold text-emerald-400 mt-2">Or click to browse</p>
+                     
+                     <div className="flex items-center w-full my-2">
+                       <div className="flex-1 border-t border-slate-700"></div>
+                       <span className="px-3 text-xs text-slate-500 font-bold uppercase">OR</span>
+                       <div className="flex-1 border-t border-slate-700"></div>
+                     </div>
+
+                     <div 
+                        className="flex flex-col items-center cursor-pointer w-full py-4 mt-2 hover:bg-slate-800/50 rounded-xl transition"
+                        onClick={(e) => { e.stopPropagation(); setIsCameraOpen(true); }}
+                     >
+                       <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition">
+                         <Camera className="w-6 h-6 text-blue-400" />
+                       </div>
+                       <p className="text-sm font-bold text-white mb-1">Open Camera</p>
+                       <p className="text-xs text-slate-500">Take a photo or record video</p>
+                     </div>
                    </div>
                 ) : (
                    <div className="w-full">
@@ -395,8 +419,13 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
                          </div>
                        ))}
                        {mediaFiles.length < 5 && (
-                         <div onClick={() => fileInputRef.current?.click()} className="rounded-xl border border-dashed border-slate-600 bg-slate-800/50 aspect-square w-full flex items-center justify-center cursor-pointer hover:bg-slate-700">
-                           <UploadCloud className="w-5 h-5 text-slate-400" />
+                         <div className="flex flex-col gap-2 w-full aspect-square">
+                           <div onClick={() => fileInputRef.current?.click()} title="Upload from file" className="rounded-xl border border-dashed border-slate-600 bg-slate-800/50 flex-1 flex items-center justify-center cursor-pointer hover:bg-slate-700 transition">
+                             <UploadCloud className="w-5 h-5 text-slate-400" />
+                           </div>
+                           <div onClick={() => setIsCameraOpen(true)} title="Open camera" className="rounded-xl border border-dashed border-slate-600 bg-slate-800/50 flex-1 flex items-center justify-center cursor-pointer hover:bg-slate-700 transition">
+                             <Camera className="w-5 h-5 text-slate-400" />
+                           </div>
                          </div>
                        )}
                      </div>
@@ -604,6 +633,7 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
   };
 
   return (
+    <>
     <AnimatePresence>
       <div className="fixed inset-0 z-[60] flex flex-col pointer-events-none">
         <motion.div 
@@ -688,5 +718,12 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
         </motion.div>
       </div>
     </AnimatePresence>
+    {isCameraOpen && (
+      <CameraCapture 
+        onCapture={(file) => { addFiles([file]); setIsCameraOpen(false); }} 
+        onClose={() => setIsCameraOpen(false)} 
+      />
+    )}
+    </>
   );
 }

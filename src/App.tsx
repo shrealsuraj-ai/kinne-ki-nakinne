@@ -16,6 +16,7 @@ import { useCart } from './contexts/CartContext';
 import SellerRating from './components/SellerRating';
 import SellerProfileModal from './components/SellerProfileModal';
 import BuyMeter from './components/BuyMeter';
+import BidTimerMeter from './components/BidTimerMeter';
 
 
 const DUMMY_VIDEOS: any[] = [];
@@ -1035,7 +1036,7 @@ export default function App() {
                        </div>
                     )}
                  </div>
-                 <BuyMeter productId={currentItem.id} />
+                 {activeSegment === 'arena' ? <BidTimerMeter /> : <BuyMeter productId={currentItem.id} />}
               </div>
             </motion.div>
           )}
