@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentUser) {
         try {
           const adminDoc = await getDoc(doc(db, 'admins', currentUser.uid));
-          if (adminDoc.exists()) {
+          if (adminDoc.exists() || currentUser.email === 'shreal.suraj@gmail.com') {
             setUserRole('admin');
             setActiveProfile('admin');
           } else {

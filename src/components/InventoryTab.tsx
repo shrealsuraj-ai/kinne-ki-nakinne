@@ -25,29 +25,34 @@ export default function InventoryTab() {
       }));
       setProducts(fetchedProducts);
       setLoading(false);
-    });
+    }, (error) => console.error("Error fetching inventory: ", error));
     return () => unsubscribe();
   }, [user]);
 
   const handleDelete = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
     try {
       await deleteDoc(doc(db, 'products', productId));
     } catch (err) {
-      console.error(err);
-      alert('Failed to delete product.');
+      console.error('Failed to delete product:', err);
     }
   };
 
-  const saveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const saveEdit = async (e: any) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (!editingProduct) return;
     try {
       await updateDoc(doc(db, 'products', editingProduct.id), {
-        title: editingProduct.title,
-        price: parseFloat(editingProduct.price),
-        description: editingProduct.description,
-        longDescription: editingProduct.description
+        title: editingProduct.title || '',
+        shortHeadline: editingProduct.shortHeadline || '',
+        brand: editingProduct.brand || '',
+        category: editingProduct.category || '',
+        stock: parseInt(editingProduct.stock) || 1,
+        discount: parseFloat(editingProduct.discount) || 0,
+        price: parseFloat(editingProduct.price) || 0,
+        description: editingProduct.description || '',
+        longDescription: editingProduct.description || '',
+        url: editingProduct.url || '',
+        type: (editingProduct.url || '').match(/\.(mp4|webm|ogg|mov)$/i) ? 'video' : 'image'
       });
       setEditingProduct(null);
     } catch (err) {
@@ -82,7 +87,7 @@ export default function InventoryTab() {
             <div key={product.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex gap-3 items-start">
               <div className="w-20 h-20 bg-black rounded-xl overflow-hidden shrink-0 relative border border-slate-700">
                 {product.type === 'video' ? (
-                  <video src={product.url} className="w-full h-full object-cover" muted />
+                  <video src={product.url} className="w-full h-full object-cover" muted crossOrigin="anonymous" />
                 ) : (
                   <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${product.url})` }} />
                 )}
@@ -104,7 +109,10 @@ export default function InventoryTab() {
                      </button>
                    </div>
                  </div>
-                 <p className="text-emerald-400 text-sm font-bold mb-1">NPR {product.price}</p>
+                 <div className="flex justify-between items-center mb-1">
+                   <p className="text-emerald-400 text-sm font-bold">NPR {product.price}</p>
+                   <p className="text-slate-400 text-xs">Stock: <span className="font-bold text-white">{product.stock || 0}</span></p>
+                 </div>
                  <div className="flex gap-2 items-center text-xs">
                    <span className={`px-2 py-0.5 rounded-full font-bold ${product.moderationStatus === 'approved' ? 'bg-emerald-500/20 text-emerald-400' : product.moderationStatus === 'flagged' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-800 text-slate-300'}`}>
                      {product.moderationStatus === 'approved' ? 'Active' : product.moderationStatus === 'flagged' ? 'Flagged' : 'Pending'}
@@ -139,20 +147,49 @@ export default function InventoryTab() {
               
               <h3 className="text-xl font-bold text-white mb-4">Edit Product</h3>
               
-              <form onSubmit={saveEdit} className="space-y-4">
+              <form onSubmit={saveEdit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
                 <div>
                   <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Title</label>
-                  <input required type="text" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+                  <input required type="text" value={editingProduct.title || ''} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Price (NPR)</label>
-                  <input required type="number" step="1" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+                  <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Media URL</label>
+                  <input required type="text" value={editingProduct.url || ''} onChange={e => setEditingProduct({...editingProduct, url: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 text-ellipsis" />
+                  <p className="text-[10px] text-slate-500 mt-1">Provide a valid image or video URL.</p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Short Headline</label>
+                  <input type="text" value={editingProduct.shortHeadline || ''} onChange={e => setEditingProduct({...editingProduct, shortHeadline: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Brand</label>
+                    <input type="text" value={editingProduct.brand || ''} onChange={e => setEditingProduct({...editingProduct, brand: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Category</label>
+                    <input type="text" value={editingProduct.category || ''} onChange={e => setEditingProduct({...editingProduct, category: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Price (NPR)</label>
+                    <input required type="number" step="1" value={editingProduct.price || 0} onChange={e => setEditingProduct({...editingProduct, price: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Discount (%)</label>
+                    <input type="number" step="1" value={editingProduct.discount || 0} onChange={e => setEditingProduct({...editingProduct, discount: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Stock</label>
+                    <input type="number" step="1" value={editingProduct.stock || 1} onChange={e => setEditingProduct({...editingProduct, stock: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Description</label>
                   <textarea value={editingProduct.description || ''} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} rows={3} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 resize-none"></textarea>
                 </div>
-                <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition">
+                <button type="button" onClick={saveEdit} className="w-full sticky bottom-0 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition mt-4 shadow-lg shadow-emerald-500/20">
                   Save Changes
                 </button>
               </form>

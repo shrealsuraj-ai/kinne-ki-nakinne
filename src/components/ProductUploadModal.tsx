@@ -18,7 +18,8 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
 
   // Form State
   const [segment, setSegment] = useState<'feed' | 'arena' | 'remarket'>('feed');
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   
   // Basic Info
   const [title, setTitle] = useState('');
@@ -63,18 +64,53 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
   }, [title, shortHeadline, brand, category, tags, description, keyFeatures, specifications, price, stock, returnPolicy]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.type.startsWith('video/')) {
-        if (file.size > 50 * 1024 * 1024) {
-          setError('Video file is too large (Limit: 50MB)');
-          return;
-        }
-        setVideoFile(file);
-        setError(null);
-      } else {
-        setError('Please upload a valid video file.');
+    if (e.target.files) {
+      addFiles(Array.from(e.target.files));
+    }
+  };
+
+  const addFiles = (newFiles: File[]) => {
+    const validFiles = newFiles.filter(file => {
+      if (!file.type.startsWith('video/') && !file.type.startsWith('image/')) return false;
+      if (file.type.startsWith('video/') && file.size > 50 * 1024 * 1024) return false;
+      return true;
+    });
+
+    if (validFiles.length !== newFiles.length) {
+      setError('Some files were rejected. Only videos (max 50MB) and images are allowed.');
+    } else {
+      setError(null);
+    }
+    
+    setMediaFiles(prev => {
+      const combined = [...prev, ...validFiles];
+      if (combined.length > 5) {
+        setError('Maximum 5 media files allowed.');
+        return combined.slice(0, 5);
       }
+      return combined;
+    });
+  };
+
+  const removeFile = (index: number) => {
+    setMediaFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files) {
+      addFiles(Array.from(e.dataTransfer.files));
     }
   };
 
@@ -95,8 +131,8 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
   };
 
   const nextStep = () => {
-    if (step === 1 && !videoFile) {
-        setError("Please upload a video to continue.");
+    if (step === 1 && mediaFiles.length === 0) {
+        setError("Please upload at least one video or image to continue.");
         return;
     }
     setError(null);
@@ -120,8 +156,8 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
       return;
     }
     
-    if (!videoFile || !title || !price) {
-      setError('Please fill all required fields and select a video.');
+    if (mediaFiles.length === 0 || !title || !price) {
+      setError('Please fill all required fields and select at least one media file.');
       return;
     }
 
@@ -129,6 +165,9 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
     setError(null);
 
     try {
+      const hasVideo = mediaFiles.some(f => f.type.startsWith('video/'));
+      const productType = hasVideo ? 'video' : (mediaFiles.length > 1 ? 'slideshow' : 'image');
+
       // 1. Create product doc stub
       const productRef = await addDoc(collection(db, 'products'), {
         sellerId: user.uid,
@@ -163,27 +202,103 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
         createdAt: serverTimestamp(),
         likes: 0,
         comments: 0,
-        type: 'video',
+        type: productType,
         isVerified: true,
         moderationStatus: 'approved' // Automatically auto-approve for now
       });
 
-      // 2. Upload video (Simulated for Demo)
+      // 2. Simulate Uploading Multiple Files
       let currentProgress = 0;
       const interval = setInterval(() => {
-        currentProgress += 10;
+        currentProgress += 5;
         setProgress(Math.min(currentProgress, 100));
-      }, 200);
+      }, 100);
 
       setTimeout(async () => {
         clearInterval(interval);
         setProgress(100);
-        // Fallback demo video since storage is not enabled
-        const downloadURL = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4';
         
+        // Use Cloudinary for upload if env variables exist, else fallback to mock/compression
+        const env = (import.meta as any).env;
+        const cloudName = env.VITE_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+        const uploadToCloudinary = async (file: File): Promise<string> => {
+          if (!cloudName || !uploadPreset) {
+            console.warn("Cloudinary not configured. Falling back to base64/object URL mock.");
+            throw new Error("Missing Cloudinary Config");
+          }
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('upload_preset', uploadPreset);
+
+          const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+            method: 'POST',
+            body: formData
+          });
+          const data = await res.json();
+          if (data.secure_url) {
+            return data.secure_url; // Real URL returned by Cloudinary (video or image)
+          } else {
+            throw new Error("Cloudinary upload failed: " + JSON.stringify(data));
+          }
+        };
+
+        const compressImage = (file: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const img = new Image();
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                const maxDim = 600;
+                if (width > maxDim || height > maxDim) {
+                  if (width > height) {
+                    height = Math.round((height * maxDim) / width);
+                    width = maxDim;
+                  } else {
+                    width = Math.round((width * maxDim) / height);
+                    height = maxDim;
+                  }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+              };
+              img.onerror = (e) => reject(e);
+              img.src = event.target?.result as string;
+            };
+            reader.onerror = (e) => reject(e);
+            reader.readAsDataURL(file);
+          });
+        };
+
+        const generatedUrls = await Promise.all(mediaFiles.map(async f => {
+          try {
+             // Attempt real upload
+             return await uploadToCloudinary(f);
+          } catch (cloudErr) {
+             // Fallbacks if Cloudinary isn't configured
+             if (f.type.startsWith('video/')) {
+               return URL.createObjectURL(f);
+             } else {
+               try {
+                 return await compressImage(f);
+               } catch (e) {
+                 return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
+               }
+             }
+          }
+        }));
+
         try {
           await updateDoc(doc(db, 'products', productRef.id), {
-            url: downloadURL,
+            url: generatedUrls[0], // Keep backward compatibility
+            mediaUrls: generatedUrls, // Support slideshow
             uploadStatus: 'completed'
           });
 
@@ -193,7 +308,7 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
           setTitle(''); setShortHeadline(''); setBrand(''); setCategory(''); setTags('');
           setDescription(''); setKeyFeatures(''); setSpecifications({});
           setPrice(''); setDiscount(''); setStock('1'); setProcessingTime(''); setDeliveryCoverage(''); setReturnPolicy('');
-          setSegment('feed'); setVideoFile(null); setProgress(0);
+          setSegment('feed'); setMediaFiles([]); setProgress(0);
           onClose();
         } catch (err) {
           console.error(err);
@@ -240,27 +355,58 @@ export default function ProductUploadModal({ isOpen, onClose }: ProductUploadMod
         return (
           <div className="space-y-6">
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">1. Product Video *</label>
-              <input type="file" accept="video/*" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
-              {!videoFile ? (
-                 <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-700 bg-slate-800/30 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500/50 hover:bg-slate-800/50 transition relative group">
-                   <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition">
-                     <UploadCloud className="w-6 h-6 text-emerald-400" />
+              <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">1. Product Media *</label>
+              <input type="file" accept="video/*,image/*" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+              
+              <div 
+                className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition relative group ${
+                  isDragging ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-800/30 hover:border-emerald-500/50 hover:bg-slate-800/50'
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={mediaFiles.length === 0 ? () => fileInputRef.current?.click() : undefined}
+              >
+                {mediaFiles.length === 0 ? (
+                   <div className="flex flex-col items-center cursor-pointer">
+                     <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition">
+                       <UploadCloud className="w-6 h-6 text-emerald-400" />
+                     </div>
+                     <p className="text-sm font-bold text-white mb-1">Drag and drop media here</p>
+                     <p className="text-xs text-slate-500">MP4, WebM, JPG, PNG up to 50MB</p>
+                     <p className="text-xs font-bold text-emerald-400 mt-2">Or click to browse</p>
                    </div>
-                   <p className="text-sm font-bold text-white mb-1">Tap to select video</p>
-                   <p className="text-xs text-slate-500">MP4, WebM up to 50MB</p>
-                 </div>
-              ) : (
-                 <div className="relative rounded-2xl overflow-hidden border border-emerald-500/30 bg-black aspect-[9/16] w-full max-w-[200px] mx-auto shadow-2xl shadow-emerald-500/10">
-                   <video src={URL.createObjectURL(videoFile)} className="w-full h-full object-cover" muted autoPlay loop playsInline />
-                   <button type="button" onClick={() => setVideoFile(null)} className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-full backdrop-blur text-white hover:bg-rose-500 transition">
-                     <X className="w-4 h-4" />
-                   </button>
-                   <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur px-2 py-1 rounded text-xs font-bold text-white flex items-center gap-1">
-                     <Video className="w-3 h-3 text-emerald-400" /> Selected
+                ) : (
+                   <div className="w-full">
+                     <div className="grid grid-cols-3 gap-2 mb-4">
+                       {mediaFiles.map((file, idx) => (
+                         <div key={idx} className="relative rounded-xl overflow-hidden border border-slate-700 bg-black aspect-square w-full shadow-lg">
+                           {file.type.startsWith('video/') ? (
+                             <video src={URL.createObjectURL(file)} className="w-full h-full object-cover" muted loop playsInline />
+                           ) : (
+                             <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" alt="" />
+                           )}
+                           <button type="button" onClick={(e) => { e.stopPropagation(); removeFile(idx); }} className="absolute top-1 right-1 bg-black/60 p-1 rounded-full backdrop-blur text-white hover:bg-rose-500 transition">
+                             <X className="w-3 h-3" />
+                           </button>
+                           <div className="absolute bottom-1 left-1 bg-black/60 backdrop-blur px-1.5 py-0.5 rounded text-[9px] font-bold text-white flex items-center gap-1">
+                             {file.type.startsWith('video/') ? <Video className="w-2.5 h-2.5 text-emerald-400" /> : <UploadCloud className="w-2.5 h-2.5 text-emerald-400" />} 
+                           </div>
+                         </div>
+                       ))}
+                       {mediaFiles.length < 5 && (
+                         <div onClick={() => fileInputRef.current?.click()} className="rounded-xl border border-dashed border-slate-600 bg-slate-800/50 aspect-square w-full flex items-center justify-center cursor-pointer hover:bg-slate-700">
+                           <UploadCloud className="w-5 h-5 text-slate-400" />
+                         </div>
+                       )}
+                     </div>
+                     <div className="flex justify-between items-center text-xs text-slate-400">
+                       <span>{mediaFiles.length} file(s) selected</span>
+                       <button type="button" onClick={() => setMediaFiles([])} className="text-rose-400 hover:text-rose-300">Clear all</button>
+                     </div>
                    </div>
-                 </div>
-              )}
+                )}
+              </div>
             </div>
 
             <div>

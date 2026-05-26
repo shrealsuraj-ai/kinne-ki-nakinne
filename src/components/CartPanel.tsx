@@ -1,36 +1,83 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingCart, X, Plus, Minus, Trash2, ArrowRight } from 'lucide-react';
+import { ShoppingCart, X, Plus, Minus, Trash2, ArrowRight, PlayCircle } from 'lucide-react';
+import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../contexts/AuthContext';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 interface CartPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  cart: any[];
-  setCart: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
-export default function CartPanel({ isOpen, onClose, cart, setCart }: CartPanelProps) {
+export default function CartPanel({ isOpen, onClose }: CartPanelProps) {
+  const { cart, updateQuantity, removeItem, clearCart } = useCart();
   const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  const updateQuantity = (cartItemId: number, delta: number) => {
-    setCart(prev => prev.map(item => {
-      if (item.cartItemId === cartItemId) {
-        const newQ = item.quantity + delta;
-        return newQ > 0 ? { ...item, quantity: newQ } : item;
-      }
-      return item;
-    }));
-  };
-
-  const removeItem = (cartItemId: number) => {
-    setCart(prev => prev.filter(item => item.cartItemId !== cartItemId));
-  };
-
-  const handleCheckout = () => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { user } = useAuth();
+  
+  const handleCheckout = async () => {
     if (cart.length === 0) return;
-    alert('Processing payment for NPR ' + totalAmount + '...\nThank you for choosing Kinne Ki Nakinne!');
-    setCart([]);
+    if (!user) {
+      alert('Please log in first to checkout.');
+      return;
+    }
+    
+    setIsProcessing(true);
+    try {
+       // Group cart by seller
+       const itemsBySeller: Record<string, typeof cart> = {};
+       cart.forEach(item => {
+         const sid = item.sellerId || 'unknown_seller';
+         if (!itemsBySeller[sid]) itemsBySeller[sid] = [];
+         itemsBySeller[sid].push(item);
+       });
+
+       for (const [sellerId, items] of Object.entries(itemsBySeller)) {
+          const orderTotal = items.reduce((sum, it) => sum + (it.price * it.quantity), 0);
+          
+          // Create the order
+          const orderRef = await addDoc(collection(db, 'orders'), {
+             buyerId: user.uid,
+             sellerId: sellerId,
+             items: items,
+             totalAmount: orderTotal,
+             status: 'pending',
+             timestamp: serverTimestamp(),
+             customerName: user.email?.split('@')[0] || 'Customer'
+          });
+
+          // Create notification for seller
+          await addDoc(collection(db, 'notifications'), {
+             userId: sellerId,
+             type: 'new_order',
+             orderId: orderRef.id,
+             title: 'New Order Received',
+             message: `You received a new order for NPR ${orderTotal}.`,
+             read: false,
+             timestamp: serverTimestamp()
+          });
+       }
+
+       alert('Checkout complete! Orders have been placed.');
+       clearCart();
+       onClose();
+    } catch (err) {
+       console.error("Error during checkout:", err);
+       alert("Error processing checkout.");
+    } finally {
+       setIsProcessing(false);
+    }
+  };
+
+  const handleViewInVideo = (sourceVideoId?: string, timestamp?: number) => {
+    if (!sourceVideoId) return;
     onClose();
+    // Simulate navigation/scroll to feed and setting video time
+    // In a real router: navigate(`/feed?videoId=${sourceVideoId}&timestamp=${timestamp}`)
+    alert(`Navigating to /feed?videoId=${sourceVideoId}&timestamp=${timestamp || 0}`);
   };
 
   if (!isOpen) return null;
@@ -78,8 +125,17 @@ export default function CartPanel({ isOpen, onClose, cart, setCart }: CartPanelP
             ) : (
                cart.map((item) => (
                  <div key={item.cartItemId} className="bg-slate-800/50 border border-slate-700 p-3 rounded-2xl flex gap-4 relative group">
-                    <div className="w-20 h-24 bg-slate-900 rounded-xl overflow-hidden shrink-0">
-                      <img src={item.url} alt={item.title} className="w-full h-full object-cover" />
+                    <div className="w-20 h-24 bg-slate-900 rounded-xl overflow-hidden shrink-0 relative">
+                      {item.type === 'video' ? (
+                         <>
+                           <video src={item.url || (item.mediaUrls && item.mediaUrls[0])} className="w-full h-full object-cover" muted crossOrigin="anonymous" />
+                           <div className="absolute top-1 left-1 bg-black/40 rounded p-1 z-10 pointer-events-none">
+                             <PlayCircle className="w-3 h-3 text-white" />
+                           </div>
+                         </>
+                      ) : (
+                         <img src={item.url || (item.mediaUrls && item.mediaUrls[0])} alt={item.title} className="w-full h-full object-cover" />
+                      )}
                     </div>
                     <div className="flex-1 flex flex-col justify-between py-1">
                       <div>
@@ -98,6 +154,17 @@ export default function CartPanel({ isOpen, onClose, cart, setCart }: CartPanelP
                           </button>
                         </div>
                       </div>
+                      
+                      {item.sourceVideoId && (
+                        <div className="mt-2">
+                           <button 
+                             onClick={() => handleViewInVideo(item.sourceVideoId, item.timestampAdded)}
+                             className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-slate-400 hover:text-emerald-400 transition"
+                           >
+                             <PlayCircle className="w-3 h-3" /> View in video
+                           </button>
+                        </div>
+                      )}
                     </div>
                     <button 
                       onClick={() => removeItem(item.cartItemId)}

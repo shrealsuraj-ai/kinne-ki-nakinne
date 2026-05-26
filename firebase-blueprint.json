@@ -1,0 +1,123 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A product listing in the marketplace",
+      "type": "object",
+      "properties": {
+        "sellerId": { "type": "string", "description": "UID of the seller" },
+        "seller": { "type": "string", "description": "Display name of the seller" },
+        "title": { "type": "string" },
+        "shortHeadline": { "type": "string" },
+        "brand": { "type": "string" },
+        "category": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "longDescription": { "type": "string" },
+        "keyFeatures": { "type": "array", "items": { "type": "string" } },
+        "specifications": { "type": "object" },
+        "price": { "type": "number" },
+        "discount": { "type": "number" },
+        "stock": { "type": "number" },
+        "segment": { "type": "string", "enum": ["feed", "arena", "remarket"] },
+        "type": { "type": "string", "enum": ["video", "image"] },
+        "url": { "type": "string" },
+        "uploadStatus": { "type": "string" },
+        "moderationStatus": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "likes": { "type": "number" },
+        "comments": { "type": "number" }
+      },
+      "required": ["sellerId", "seller", "title", "price", "segment", "type", "createdAt"]
+    },
+    "Bid": {
+      "title": "Bid",
+      "description": "A bid placed on an auction item",
+      "type": "object",
+      "properties": {
+        "streamId": { "type": "string", "description": "ID of the product being auctioned" },
+        "userId": { "type": "string", "description": "UID of the bidder" },
+        "amount": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["streamId", "userId", "amount", "timestamp"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A chat conversation between two users",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "participantData": { "type": "object" },
+        "lastMessage": { "type": "string" },
+        "lastMessageTime": { "type": "string", "format": "date-time" },
+        "lastMessageSenderId": { "type": "string" },
+        "unreadCount": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participants", "createdAt", "updatedAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A single message in a conversation",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "messageType": { "type": "string" },
+        "productData": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "readBy": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string" }
+      },
+      "required": ["senderId", "text", "createdAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile and role data",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["casual", "seller", "admin"] },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" }
+      },
+      "required": ["role"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Marketplace products"
+    },
+    "/bids/{bidId}": {
+      "schema": "Bid",
+      "description": "Auction bids"
+    },
+    "/conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Chat conversations"
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Individual chat messages"
+    },
+    "/admins/{userId}": {
+      "schema": "User",
+      "description": "Admin users"
+    },
+    "/sellers/{userId}": {
+      "schema": "User",
+      "description": "Seller users"
+    },
+    "/casual_users/{userId}": {
+      "schema": "User",
+      "description": "Casual users"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Legacy user profiles"
+    }
+  }
+}

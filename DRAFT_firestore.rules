@@ -12,7 +12,7 @@ service cloud.firestore {
     }
 
     function isEmailVerified() {
-      return isSignedIn(); // Allow without email verification for now since signup doesn't send verification email
+      return isSignedIn() && request.auth.token.email_verified == true;
     }
 
     function isValidId(id) {
@@ -34,7 +34,7 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        (('email' in request.auth.token) && request.auth.token.email == 'shreal.suraj@gmail.com')
+        request.auth.token.email == 'shreal.suraj@gmail.com'
       );
     }
 
@@ -46,7 +46,7 @@ service cloud.firestore {
              data.title is string && data.title.size() <= 200 &&
              data.price is number && data.price >= 0 &&
              data.segment in ['feed', 'arena', 'remarket'] &&
-             data.type in ['video', 'image', 'slideshow'] &&
+             data.type in ['video', 'image'] &&
              data.createdAt == request.time;
     }
 
@@ -83,46 +83,22 @@ service cloud.firestore {
 
     match /products/{productId} {
       allow get: if isValidId(productId) && (existing().moderationStatus == 'approved' || isAdmin() || isOwner(existing().sellerId));
-      allow list: if existing().moderationStatus == 'approved' || isAdmin() || isOwner(existing().sellerId); 
+      allow list: if existing().moderationStatus == 'approved'; 
       allow create: if isEmailVerified() && isValidProduct(incoming()) && isValidId(productId);
       allow update: if isEmailVerified() && (
         isAdmin() || 
-        (incoming().diff(existing()).affectedKeys().hasOnly(['views']) && incoming().views == existing().views + 1) ||
         (isOwner(existing().sellerId) && 
          incoming().sellerId == existing().sellerId &&
          incoming().createdAt == existing().createdAt &&
          // Action: Basic Update
-         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'shortHeadline', 'brand', 'category', 'tags', 'description', 'longDescription', 'keyFeatures', 'specifications', 'price', 'discount', 'stock', 'shippingInfo', 'returnPolicy', 'searchMetadata', 'url', 'mediaUrls', 'uploadStatus', 'views', 'type']))
+         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'shortHeadline', 'brand', 'category', 'tags', 'description', 'longDescription', 'keyFeatures', 'specifications', 'price', 'discount', 'stock', 'shippingInfo', 'returnPolicy', 'searchMetadata', 'url', 'uploadStatus']))
       );
       allow delete: if isAdmin() || (isSignedIn() && isOwner(existing().sellerId));
-
-      match /reviews/{reviewId} {
-        allow read: if isValidId(productId);
-        allow write: if isSignedIn();
-      }
-    }
-
-    match /seller_reviews/{reviewId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    match /orders/{orderId} {
-      allow get, list: if isSignedIn() && (isAdmin() || existing().buyerId == request.auth.uid || existing().sellerId == request.auth.uid);
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
-    }
-
-    match /chats/{chatId} {
-      allow read, write: if isSignedIn();
-      match /messages/{messageId} {
-        allow read, write: if isSignedIn();
-      }
     }
 
     match /bids/{bidId} {
       allow get: if isValidId(bidId);
-      allow list: if true; // Auctions are public
+      allow list: if isSignedIn(); // Logged in users see bids
       allow create: if isEmailVerified() && isValidBid(incoming()) && isValidId(bidId);
       allow delete: if isAdmin();
     }
@@ -143,32 +119,22 @@ service cloud.firestore {
     }
 
     match /admins/{userId} {
-      allow get: if isSignedIn() && (isAdmin() || isOwner(userId));
-      allow list: if isAdmin();
+      allow read: if isSignedIn() && (isAdmin() || isOwner(userId));
       allow write: if isAdmin();
-    }
-    
-    match /seller_applications/{userId} {
-      allow get: if isSignedIn() && (isAdmin() || isOwner(userId));
-      allow list: if isAdmin();
-      allow write: if isAdmin() || isOwner(userId);
     }
 
     match /sellers/{userId} {
-      allow get: if isSignedIn() && (isAdmin() || isOwner(userId));
-      allow list: if isAdmin();
+      allow read: if isSignedIn() && (isAdmin() || isOwner(userId));
       allow write: if isAdmin() || isOwner(userId);
     }
 
     match /casual_users/{userId} {
-      allow get: if isSignedIn() && (isAdmin() || isOwner(userId));
-      allow list: if isAdmin();
+      allow read: if isSignedIn() && (isAdmin() || isOwner(userId));
       allow write: if isAdmin() || isOwner(userId);
     }
 
     match /users/{userId} {
-      allow get: if isSignedIn() && (isAdmin() || isOwner(userId));
-      allow list: if isAdmin();
+      allow read: if isSignedIn() && (isAdmin() || isOwner(userId));
       allow write: if isAdmin() || (isOwner(userId) && incoming().role == existing().role);
     }
   }

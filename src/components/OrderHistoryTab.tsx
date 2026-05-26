@@ -1,81 +1,90 @@
-import React, { useState } from 'react';
-import { Package, RotateCw, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, MessageCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { db } from '../lib/firebase';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import OrderCard from './OrderCard';
 import ChatModal from './ChatModal';
 
 export default function OrderHistoryTab() {
   const { user, userRole } = useAuth();
+  const [orders, setOrders] = useState<any[]>([]);
   const [activeChat, setActiveChat] = useState<{ id: string, name: string } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const orders = [
-    { id: 'ORD-1029', date: '2026-04-25', status: 'Delivered', total: '$145.00', items: ['Vintage Denim Jacket', 'Silver Ring'], sellerName: 'Vintage Vibes', customerName: 'Alex Rivera' },
-    { id: 'ORD-1028', date: '2026-04-20', status: 'Processing', total: '$89.99', items: ['Wireless Earbuds'], sellerName: 'Tech Haven', customerName: 'Alex Rivera' },
-    { id: 'ORD-1027', date: '2026-04-10', status: 'Delivered', total: '$210.50', items: ['Mechanical Keyboard'], sellerName: 'Keebz', customerName: 'Alex Rivera' },
-  ];
+  const statuses = ['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+  const filteredOrders = statusFilter === 'all' ? orders : orders.filter(o => o.status === statusFilter);
 
-  const handleBuyAgain = (orderId: string) => {
-    alert(`Items from order ${orderId} have been added to your cart!`);
-  };
+  useEffect(() => {
+    if (!user) return;
+    const fetchOrders = async () => {
+      const field = userRole === 'seller' ? 'sellerId' : 'buyerId';
+      const q = query(
+        collection(db, 'orders'), 
+        where(field, '==', user.uid)
+      );
+      try {
+        const snap = await getDocs(q);
+        // Quick sort because ordering on different fields needs composite index in Firestore
+        const fetchedOrders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+        fetchedOrders.sort((a, b) => b.timestamp?.toMillis() - a.timestamp?.toMillis());
+        setOrders(fetchedOrders);
+      } catch (err) {
+        console.error("Error fetching orders:", err);
+      }
+    };
+    fetchOrders();
+  }, [user, userRole]);
 
   const handleChat = (order: any) => {
-    // If user is Seller, they chat with Customer. If user is Casual, they chat with Seller.
     const recipientName = userRole === 'seller' ? order.customerName : order.sellerName;
-    setActiveChat({ id: `chat-${order.id}`, name: recipientName });
+    setActiveChat({ id: `chat-${order.id}`, name: recipientName || 'User' });
   };
 
   return (
     <>
       <div className="space-y-4">
-        <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-          <Package className="w-4 h-4 text-emerald-400" /> {userRole === 'seller' ? 'Customer Orders' : 'My Orders'}
-        </h3>
-        {orders.map(order => (
-          <div key={order.id} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-            <div className="flex justify-between items-center mb-3">
-              <h4 className="text-sm font-bold text-white">{order.id}</h4>
-              <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${
-                order.status === 'Delivered' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
-              }`}>
-                {order.status}
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mb-2">Ordered on: {order.date}</p>
-            <div className="text-xs text-slate-300 font-medium mb-3 flex-1 flex flex-col gap-1">
-              {userRole === 'seller' ? (
-                 <span><span className="text-slate-500">Customer:</span> {order.customerName}</span>
-              ) : (
-                 <span><span className="text-slate-500">Seller:</span> {order.sellerName}</span>
-              )}
-              <span><span className="text-slate-500">Items:</span> {order.items.join(', ')}</span>
-            </div>
-            <div className="flex flex-col gap-3 pt-3 border-t border-slate-800">
-              <div className="flex justify-between items-center">
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase">Total</span>
-                  <span className="text-sm text-white font-black">{order.total}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => handleChat(order)}
-                    className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-slate-700"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    Chat
-                  </button>
-                  {userRole !== 'seller' && (
-                    <button 
-                      onClick={() => handleBuyAgain(order.id)}
-                      className="flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-emerald-500/20"
-                    >
-                      <RotateCw className="w-3.5 h-3.5" />
-                      Buy Again
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <Package className="w-4 h-4 text-emerald-400" /> {userRole === 'seller' ? 'Customer Orders' : 'My Orders'}
+          </h3>
+          <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
+            {statuses.map(status => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize whitespace-nowrap transition-colors ${
+                  statusFilter === status 
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                    : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
           </div>
-        ))}
+        </div>
+        {filteredOrders.length === 0 ? (
+          <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl text-center">
+            <Package className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+            <p className="text-slate-400 font-bold">No orders found.</p>
+          </div>
+        ) : (
+          filteredOrders.map(order => (
+             <div key={order.id} className="relative group">
+                <OrderCard order={order} />
+                <div className="absolute bottom-4 left-4 z-10">
+                   <button 
+                     onClick={() => handleChat(order)}
+                     className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-slate-700"
+                   >
+                     <MessageCircle className="w-3.5 h-3.5" />
+                     Chat
+                   </button>
+                </div>
+             </div>
+          ))
+        )}
       </div>
       
       {activeChat && (
@@ -89,5 +98,3 @@ export default function OrderHistoryTab() {
     </>
   );
 }
-
-
