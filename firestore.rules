@@ -82,8 +82,8 @@ service cloud.firestore {
     // --- Rules ---
 
     match /products/{productId} {
-      allow get: if isValidId(productId) && (existing().moderationStatus == 'approved' || isAdmin() || isOwner(existing().sellerId));
-      allow list: if existing().moderationStatus == 'approved' || isAdmin() || isOwner(existing().sellerId); 
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       allow create: if isEmailVerified() && isValidProduct(incoming()) && isValidId(productId);
       allow update: if isEmailVerified() && (
         isAdmin() || 
@@ -155,7 +155,7 @@ service cloud.firestore {
     }
 
     match /sellers/{userId} {
-      allow get: if isSignedIn() && (isAdmin() || isOwner(userId));
+      allow get: if isSignedIn();
       allow list: if isAdmin();
       allow write: if isAdmin() || isOwner(userId);
     }

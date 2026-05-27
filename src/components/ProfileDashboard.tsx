@@ -100,7 +100,7 @@ export default function ProfileDashboard({ isOpen, onClose, onProductClick, view
     </div>
   );
 
-  if (!user) return null;
+  if (!user && !viewingSellerId) return null;
 
   return (
     <AnimatePresence>
@@ -122,80 +122,88 @@ export default function ProfileDashboard({ isOpen, onClose, onProductClick, view
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex flex-col p-4 pt-10 border-b border-slate-800 bg-slate-900/50 gap-4">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  {!viewingSellerId && (
-                    <div className="relative">
-                      <div className="w-12 h-12 bg-gradient-to-tr from-emerald-500 to-teal-500 rounded-full flex items-center justify-center font-black text-white text-xl shadow-lg border-2 border-white/10">
-                        {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                      {isVerified && userRole === 'seller' && (
-                        <div className="absolute -bottom-1 -right-1 bg-slate-900 rounded-full p-0.5">
-                          <BadgeCheck className="w-5 h-5 fill-blue-500 text-white" />
+            {!viewingSellerId ? (
+              <div className="flex flex-col p-4 pt-10 border-b border-slate-800 bg-slate-900/50 gap-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    {user && (
+                      <div className="relative">
+                        <div className="w-12 h-12 bg-gradient-to-tr from-emerald-500 to-teal-500 rounded-full flex items-center justify-center font-black text-white text-xl shadow-lg border-2 border-white/10">
+                          {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
                         </div>
-                      )}
+                        {isVerified && userRole === 'seller' && (
+                          <div className="absolute -bottom-1 -right-1 bg-slate-900 rounded-full p-0.5">
+                            <BadgeCheck className="w-5 h-5 fill-blue-500 text-white" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div>
+                      <h2 className="text-lg font-black text-white leading-tight flex items-center gap-2">
+                         {activeProfile === 'seller' ? 'Seller Dashboard' : 'Casual User Info'}
+                      </h2>
+                      {user && <p className="text-xs text-slate-400">{user.email}</p>}
                     </div>
-                  )}
-                  <div>
-                    <h2 className="text-lg font-black text-white leading-tight flex items-center gap-2">
-                       {viewingSellerId ? 'Seller Profile' : (activeProfile === 'seller' ? 'Seller Dashboard' : 'Casual User Info')}
-                    </h2>
-                    {!viewingSellerId && <p className="text-xs text-slate-400">{user.email}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    {userRole === 'seller' && (
+                      <button 
+                        onClick={() => handleSwitchProfile(activeProfile === 'seller' ? 'casual' : 'seller')}
+                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-3 rounded-full text-xs font-bold transition flex items-center gap-1"
+                      >
+                        Swap to {activeProfile === 'seller' ? 'Casual' : 'Seller'}
+                      </button>
+                    )}
+                    <button onClick={onClose} className="bg-slate-800 p-2 rounded-full hover:bg-slate-700 text-slate-300 transition border border-slate-700 border-b-2">
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {!viewingSellerId && userRole === 'seller' && (
+                
+                {/* Verification Banner */}
+                {activeProfile === 'seller' && !isVerified ? (
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-500/20 p-2 rounded-lg">
+                        <Shield className="w-4 h-4 text-blue-400" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-white">Verify Your Seller Profile</h4>
+                        <p className="text-[10px] text-blue-200/70">Get the blue checkmark and increase sales by 40%.</p>
+                      </div>
+                    </div>
                     <button 
-                      onClick={() => handleSwitchProfile(activeProfile === 'seller' ? 'casual' : 'seller')}
-                      className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-3 rounded-full text-xs font-bold transition flex items-center gap-1"
+                      onClick={() => {
+                         setIsVerifyModalOpen(true);
+                      }}
+                      className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors"
                     >
-                      Swap to {activeProfile === 'seller' ? 'Casual' : 'Seller'}
+                      Verify Now
                     </button>
-                  )}
-                  <button onClick={onClose} className="bg-slate-800 p-2 rounded-full hover:bg-slate-700 text-slate-300 transition border border-slate-700 border-b-2">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              
-              {/* Verification Banner */}
-              {activeProfile === 'seller' && !isVerified ? (
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-500/20 p-2 rounded-lg">
-                      <Shield className="w-4 h-4 text-blue-400" />
+                  </div>
+                ) : activeProfile === 'seller' && isVerified ? (
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex items-center gap-3">
+                    <div className="bg-emerald-500/20 p-2 rounded-lg">
+                      <BadgeCheck className="w-4 h-4 text-emerald-400" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-white">Verify Your Seller Profile</h4>
-                      <p className="text-[10px] text-blue-200/70">Get the blue checkmark and increase sales by 40%.</p>
+                      <h4 className="text-xs font-bold text-white">Verified Seller Account</h4>
+                      <p className="text-[10px] text-emerald-200/70">Your profile and listings now show the verification badge.</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => {
-                       setIsVerifyModalOpen(true);
-                    }}
-                    className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors"
-                  >
-                    Verify Now
-                  </button>
-                </div>
-              ) : activeProfile === 'seller' && isVerified ? (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex items-center gap-3">
-                  <div className="bg-emerald-500/20 p-2 rounded-lg">
-                    <BadgeCheck className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white">Verified Seller Account</h4>
-                    <p className="text-[10px] text-emerald-200/70">Your profile and listings now show the verification badge.</p>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="absolute top-4 right-4 z-[60]">
+                <button onClick={onClose} className="bg-slate-800/80 backdrop-blur-md p-2.5 rounded-full hover:bg-slate-700 text-slate-300 transition border border-slate-700 shadow-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            )}
 
             {viewingSellerId ? (
-              <div className="flex-1 overflow-y-auto p-4 hide-scrollbar">
-                <SellerProfileTab user={user!} sellerId={viewingSellerId} onProductClick={onProductClick} />
+              <div className="flex-1 overflow-y-auto hide-scrollbar pt-10 px-4">
+                <SellerProfileTab user={user} sellerId={viewingSellerId} onProductClick={onProductClick} />
               </div>
             ) : activeProfile === 'admin' ? (
                <div className="flex-1 flex flex-col min-h-0">

@@ -1095,7 +1095,7 @@ export default function App() {
           }}
         />
         <ProfileDashboard 
-           isOpen={isProfileDashboardOpen && !!user} 
+           isOpen={isProfileDashboardOpen} 
            onClose={() => {
               setIsProfileDashboardOpen(false);
               setViewingSellerId(null);

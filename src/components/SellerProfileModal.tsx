@@ -108,7 +108,13 @@ export default function SellerProfileModal({ isOpen, onClose, sellerId, sellerNa
                 <div className="grid grid-cols-2 gap-3">
                    {products.map(p => (
                       <div key={p.id} className="relative rounded-xl overflow-hidden aspect-[3/4] bg-slate-800 group border border-slate-700">
-                         {p.url && <img src={p.url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={p.title} />}
+                         {(p.url || (p.mediaUrls && p.mediaUrls[0]) || p.videoUrl) && (
+                           p.type === 'video' || p.videoUrl ? (
+                             <video src={p.url || p.videoUrl || (p.mediaUrls && p.mediaUrls[0])} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" muted crossOrigin="anonymous" />
+                           ) : (
+                             <img src={p.url || (p.mediaUrls && p.mediaUrls[0])} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={p.title} />
+                           )
+                         )}
                          <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/90 pb-3 to-transparent pointer-events-none">
                             <p className="text-[10px] font-bold text-white line-clamp-1">{p.title}</p>
                             <p className="text-xs font-black text-emerald-400 mt-0.5">NPR {p.price}</p>

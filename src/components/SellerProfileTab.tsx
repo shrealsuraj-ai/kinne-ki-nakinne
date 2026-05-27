@@ -7,7 +7,7 @@ import { motion } from 'motion/react';
 import SellerRating from './SellerRating';
 
 interface SellerProfileTabProps {
-  user: AuthUser;
+  user?: AuthUser | null;
   sellerId?: string;
   onProductClick?: (product: any) => void;
 }
@@ -34,10 +34,15 @@ export default function SellerProfileTab({ user, sellerId, onProductClick }: Sel
 
   const [isVerified, setIsVerified] = useState(false);
 
-  const targetId = sellerId || user.uid;
-  const isOwnProfile = !sellerId || sellerId === user.uid;
+  // If no sellerId is provided, we default to the current user's profile. If there's no user, it's an error state but we handle it gracefully.
+  const targetId = sellerId || (user ? user.uid : '');
+  const isOwnProfile = user && targetId === user.uid;
 
   useEffect(() => {
+    if (!targetId) {
+      setLoading(false);
+      return;
+    }
     let active = true;
     async function fetchUserDataAndProducts() {
       try {
@@ -306,12 +311,12 @@ export default function SellerProfileTab({ user, sellerId, onProductClick }: Sel
         ) : (
            products.map(product => (
              <div key={product.id} onClick={() => onProductClick && onProductClick(product)} className="aspect-square bg-slate-800 relative group cursor-pointer overflow-hidden border border-slate-800/50">
-                {product.type === 'video' ? (
-                   <video src={product.url} className="w-full h-full object-cover" muted crossOrigin="anonymous" />
+                {(product.type === 'video' || product.videoUrl) ? (
+                   <video src={product.url || product.videoUrl || (product.mediaUrls && product.mediaUrls[0])} className="w-full h-full object-cover" muted crossOrigin="anonymous" />
                 ) : (
-                   <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${product.url})` }} />
+                   <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${product.url || (product.mediaUrls && product.mediaUrls[0])})` }} />
                 )}
-                {product.type === 'video' && (
+                {(product.type === 'video' || product.videoUrl) && (
                   <div className="absolute top-1 right-1 bg-black/40 rounded p-1">
                     <Video className="w-3 h-3 text-white" />
                   </div>
