@@ -155,27 +155,17 @@ const VideoPlayer = ({ src, isMuted, setIsMuted }: { src: string, isMuted: boole
               </button>
             </div>
 
-            {/* Center Play/Pause */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <button 
-                onClick={togglePlay}
-                className="bg-black/50 p-4 rounded-full backdrop-blur-md border border-white/20 text-white pointer-events-auto hover:bg-black/70 transition-colors shadow-lg transform hover:scale-105 active:scale-95"
-              >
-                {isPlaying ? <Pause className="w-8 h-8 md:w-10 md:h-10 fill-white" /> : <Play className="w-8 h-8 md:w-10 md:h-10 fill-white ml-1" />}
-              </button>
-            </div>
-
-            {/* Bottom Controls Bar (Slider + Mute) */}
-            <div className="absolute bottom-28 left-0 right-0 px-4 pointer-events-auto pb-4 pt-8 bg-gradient-to-t from-black/80 to-transparent">
-              <div className="flex items-center gap-4">
+            {/* Bottom Controls Bar (Play, Slider, Mute) */}
+            <div className="absolute bottom-[70px] left-0 right-0 px-4 pointer-events-auto pb-2 pt-6 bg-gradient-to-t from-black/80 to-transparent">
+              <div className="flex items-center gap-3">
                 <button 
-                  onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
-                  className="bg-black/50 p-2 rounded-full backdrop-blur-md border border-white/20 text-white hover:bg-black/70 transition-colors shadow-lg flex-shrink-0"
+                  onClick={togglePlay}
+                  className="bg-black/50 p-2 rounded-full backdrop-blur-md border border-white/20 text-white hover:bg-black/70 transition-colors shadow-lg flex-shrink-0 transform hover:scale-105 active:scale-95"
                 >
-                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                  {isPlaying ? <Pause className="w-5 h-5 fill-white" /> : <Play className="w-5 h-5 fill-white ml-0.5" />}
                 </button>
-                
-                <div className="flex items-center gap-3 flex-1 text-xs text-white font-mono font-bold drop-shadow-md">
+
+                <div className="flex items-center gap-2 flex-1 text-[10px] text-white font-mono font-bold drop-shadow-md">
                    <span>{formatTime(progress)}</span>
                    <input 
                      type="range" 
@@ -191,6 +181,13 @@ const VideoPlayer = ({ src, isMuted, setIsMuted }: { src: string, isMuted: boole
                    />
                    <span>{formatTime(duration)}</span>
                 </div>
+
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+                  className="bg-black/50 p-2 rounded-full backdrop-blur-md border border-white/20 text-white hover:bg-black/70 transition-colors shadow-lg flex-shrink-0"
+                >
+                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </button>
               </div>
             </div>
           </motion.div>

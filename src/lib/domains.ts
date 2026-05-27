@@ -32,6 +32,11 @@ export const DOMAINS: Domain[] = [
     { id: 'partnership', label: 'Partnership', color: 'emerald' },
     { id: 'fundraising', label: 'Fund Raising', color: 'green' }
   ]},
+  { id: 'khelne', name: 'Khelne Ki Nakhelne?', label: 'Play or Not to Play (Gaming/Sports)', primaryAction: 'KHELNE!', segments: [
+    { id: 'games', label: 'Games', color: 'indigo' },
+    { id: 'sports', label: 'Sports', color: 'blue' },
+    { id: 'events', label: 'Events', color: 'purple' }
+  ]},
   { id: 'padhne', name: 'Padhne Ki Napadhne?', label: 'Study or Not to Study (Education)', primaryAction: 'PADHNE!', segments: [
     { id: 'courses', label: 'Courses', color: 'blue' },
     { id: 'schools', label: 'Schools', color: 'indigo' },

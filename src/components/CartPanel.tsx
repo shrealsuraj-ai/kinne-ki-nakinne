@@ -124,8 +124,8 @@ export default function CartPanel({ isOpen, onClose }: CartPanelProps) {
                </div>
             ) : (
                cart.map((item) => (
-                 <div key={item.cartItemId} className="bg-slate-800/50 border border-slate-700 p-3 rounded-2xl flex gap-4 relative group">
-                    <div className="w-20 h-24 bg-slate-900 rounded-xl overflow-hidden shrink-0 relative">
+                 <div key={item.cartItemId} className="bg-slate-800/50 border border-slate-700 p-2.5 rounded-xl flex gap-3 relative group overflow-hidden">
+                    <div className="w-16 h-20 bg-slate-900 rounded-lg overflow-hidden shrink-0 relative">
                       {item.type === 'video' ? (
                          <>
                            <video src={item.url || (item.mediaUrls && item.mediaUrls[0])} className="w-full h-full object-cover" muted crossOrigin="anonymous" />
@@ -137,40 +137,40 @@ export default function CartPanel({ isOpen, onClose }: CartPanelProps) {
                          <img src={item.url || (item.mediaUrls && item.mediaUrls[0])} alt={item.title} className="w-full h-full object-cover" />
                       )}
                     </div>
-                    <div className="flex-1 flex flex-col justify-between py-1">
+                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                       <div>
-                        <h4 className="text-white font-bold text-sm line-clamp-1 pr-6">{item.title}</h4>
-                        <p className="text-slate-400 text-xs mt-1">Size: {item.size}</p>
+                        <h4 className="text-white font-bold text-sm truncate pr-6">{item.title}</h4>
+                        <p className="text-slate-400 text-[10px] mt-0.5">Size: {item.size}</p>
                       </div>
-                      <div className="flex justify-between items-end">
-                        <span className="text-emerald-400 font-black text-sm">NPR {item.price}</span>
-                        <div className="flex items-center gap-3 bg-slate-900 rounded-full border border-slate-700 px-2 py-1">
-                          <button onClick={() => updateQuantity(item.cartItemId, -1)} className="p-1 hover:text-white text-slate-400 transition cursor-pointer">
+                      <div className="flex justify-between items-center gap-2 mt-1">
+                        <span className="text-emerald-400 font-black text-sm truncate">NPR {item.price}</span>
+                        <div className="flex items-center gap-1.5 bg-slate-900 rounded-md border border-slate-700 px-1.5 py-0.5 shrink-0">
+                          <button onClick={() => updateQuantity(item.cartItemId, -1)} className="p-0.5 hover:text-white text-slate-400 transition cursor-pointer">
                             <Minus className="w-3 h-3" />
                           </button>
-                          <span className="text-xs font-bold text-white w-4 text-center">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.cartItemId, 1)} className="p-1 hover:text-white text-slate-400 transition cursor-pointer">
+                          <span className="text-[10px] font-bold text-white w-3 text-center">{item.quantity}</span>
+                          <button onClick={() => updateQuantity(item.cartItemId, 1)} className="p-0.5 hover:text-white text-slate-400 transition cursor-pointer">
                             <Plus className="w-3 h-3" />
                           </button>
                         </div>
                       </div>
                       
                       {item.sourceVideoId && (
-                        <div className="mt-2">
+                        <div className="mt-1.5">
                            <button 
                              onClick={() => handleViewInVideo(item.sourceVideoId, item.timestampAdded)}
-                             className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-slate-400 hover:text-emerald-400 transition"
+                             className="flex items-center gap-1 text-[9px] uppercase font-bold text-slate-400 hover:text-emerald-400 transition"
                            >
-                             <PlayCircle className="w-3 h-3" /> View in video
+                             <PlayCircle className="w-2.5 h-2.5" /> View in video
                            </button>
                         </div>
                       )}
                     </div>
                     <button 
                       onClick={() => removeItem(item.cartItemId)}
-                      className="absolute top-3 right-3 p-1.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/20 rounded-lg transition opacity-0 group-hover:opacity-100"
+                      className="absolute top-2 right-2 p-1 text-slate-500 hover:text-rose-500 hover:bg-rose-500/20 rounded-md transition sm:opacity-0 group-hover:opacity-100"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                  </div>
                ))

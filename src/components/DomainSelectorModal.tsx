@@ -1,7 +1,93 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, ChevronRight, Compass } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, MotionValue, PanInfo } from 'motion/react';
+import { X, Search, ShoppingBag, Utensils, Compass, Tv, Briefcase, GraduationCap, Gamepad2 } from 'lucide-react';
 import { DOMAINS, Domain } from '../lib/domains';
+
+const ICONS: Record<string, React.ReactNode> = {
+  kinne: <ShoppingBag className="w-6 h-6 text-emerald-400" />,
+  khane: <Utensils className="w-6 h-6 text-orange-400" />,
+  jane: <Compass className="w-6 h-6 text-blue-400" />,
+  herne: <Tv className="w-6 h-6 text-indigo-400" />,
+  garne: <Briefcase className="w-6 h-6 text-teal-400" />,
+  padhne: <GraduationCap className="w-6 h-6 text-cyan-400" />,
+  khelne: <Gamepad2 className="w-6 h-6 text-rose-400" />,
+};
+
+const ITEM_ANGLE = 25;
+const RADIUS = 180;
+const BASE_ANGLE = 20;
+
+function CircularItem({
+  domain,
+  index,
+  selectedIndex,
+  setSelectedIndex,
+  springOffset,
+  angleOffset,
+  onPan,
+  onPanEnd
+}: {
+  domain: Domain;
+  index: number;
+  selectedIndex: number;
+  setSelectedIndex: (idx: number) => void;
+  springOffset: MotionValue<number>;
+  angleOffset: MotionValue<number>;
+  onPan: (e: any, info: PanInfo) => void;
+  onPanEnd: (e: any, info: PanInfo) => void;
+}) {
+  const isSelected = index === selectedIndex;
+  
+  const currentAngle = useTransform(springOffset, (offset) => BASE_ANGLE + index * ITEM_ANGLE + offset);
+  const x = useTransform(currentAngle, (angle) => RADIUS * Math.sin((angle * Math.PI) / 180));
+  const y = useTransform(currentAngle, (angle) => -RADIUS * Math.cos((angle * Math.PI) / 180));
+
+  const isDragging = useRef(false);
+
+  return (
+    <motion.button
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ 
+        scale: isSelected ? 1.2 : 1, 
+        opacity: 1,
+      }}
+      style={{ x, y, xOrigin: "50%", yOrigin: "50%", touchAction: "none" }}
+      transition={{ type: "spring", stiffness: 200, damping: 20, delay: index * 0.05 }}
+      onPanStart={() => {
+        isDragging.current = true;
+      }}
+      onPan={onPan}
+      onPanEnd={(e, info) => {
+        onPanEnd(e, info);
+        // Small delay to prevent click fire after pan ends
+        setTimeout(() => {
+          isDragging.current = false;
+        }, 50);
+      }}
+      onClick={() => {
+         if (isDragging.current) return;
+         setSelectedIndex(index);
+         angleOffset.set(-index * ITEM_ANGLE);
+      }}
+      className={`absolute flex items-center justify-center rounded-full shadow-2xl backdrop-blur-md border pointer-events-auto origin-center transition-colors duration-300 ${
+        isSelected 
+          ? 'w-16 h-16 bg-white/20 border-white/50 z-20 shadow-sky-500/20 text-white' 
+          : 'w-14 h-14 bg-white/5 border-white/10 hover:bg-white/10 z-10 text-slate-300'
+      }`}
+    >
+      <div className={`transform -translate-x-1/2 -translate-y-1/2 absolute left-1/2 top-1/2 flex items-center justify-center transition-transform duration-300 ${isSelected ? 'scale-110' : 'scale-90 opacity-70'}`}>
+        {ICONS[domain.id] || <Search className="w-6 h-6" />}
+      </div>
+      
+      {/* Title Label rotating with item */}
+      <motion.div 
+        className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 whitespace-nowrap text-xs font-black tracking-widest ${isSelected ? 'text-white' : 'text-slate-400 opacity-0 group-hover:opacity-100'} transition-opacity duration-300 pointer-events-none drop-shadow-md`}
+      >
+        {domain.name.split(' ')[0]}
+      </motion.div>
+    </motion.button>
+  );
+}
 
 export default function DomainSelectorModal({ 
   isOpen, 
@@ -14,6 +100,88 @@ export default function DomainSelectorModal({
   activeDomainId: string; 
   onSelectDomain: (domainId: string, firstSegmentId: string) => void;
 }) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const angleOffset = useMotionValue(0);
+  const springOffset = useSpring(angleOffset, { stiffness: 300, damping: 30 });
+
+  const hingeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      const idx = DOMAINS.findIndex(d => d.id === activeDomainId);
+      if (idx !== -1) {
+        setSelectedIndex(idx);
+        angleOffset.set(-idx * ITEM_ANGLE);
+      }
+    }
+  }, [isOpen, activeDomainId, angleOffset]);
+
+  const activeDomain = DOMAINS[selectedIndex] || DOMAINS[0];
+
+  const handlePan = (e: any, info: PanInfo) => {
+    if (hingeRef.current) {
+      const rect = hingeRef.current.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      
+      const prevX = info.point.x - info.delta.x - cx;
+      const prevY = info.point.y - info.delta.y - cy;
+      const currX = info.point.x - cx;
+      const currY = info.point.y - cy;
+      
+      const prevAngle = Math.atan2(prevY, prevX);
+      const currAngle = Math.atan2(currY, currX);
+      
+      let angleDelta = (currAngle - prevAngle) * (180 / Math.PI);
+      
+      if (angleDelta > 180) angleDelta -= 360;
+      if (angleDelta < -180) angleDelta += 360;
+      
+      angleOffset.set(angleOffset.get() + angleDelta);
+    } else {
+      const delta = info.delta.y * 0.5 + info.delta.x * 0.5;
+      angleOffset.set(angleOffset.get() + delta);
+    }
+  };
+
+  const handlePanEnd = (e: any, info: PanInfo) => {
+    let angularVelocity = 0;
+    if (hingeRef.current) {
+       const rect = hingeRef.current.getBoundingClientRect();
+       const cx = rect.left + rect.width / 2;
+       const cy = rect.top + rect.height / 2;
+       const r = Math.hypot(info.point.x - cx, info.point.y - cy) || 1;
+       const vX = info.velocity.x;
+       const vY = info.velocity.y;
+       const cross = (info.point.x - cx) * vY - (info.point.y - cy) * vX;
+       angularVelocity = (cross / (r * r)) * (180 / Math.PI) * 0.1;
+    } else {
+       angularVelocity = (info.velocity.y * 0.05 + info.velocity.x * 0.05);
+    }
+    
+    if (isNaN(angularVelocity)) angularVelocity = 0;
+
+    const targetOffset = angleOffset.get() + angularVelocity * 2;
+    
+    let idx = Math.round(-targetOffset / ITEM_ANGLE);
+    idx = Math.max(0, Math.min(DOMAINS.length - 1, idx));
+    
+    setSelectedIndex(idx);
+    angleOffset.set(-idx * ITEM_ANGLE);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    const delta = e.deltaY;
+    if (Math.abs(delta) > 5) {
+      const dir = delta > 0 ? 1 : -1;
+      let newIdx = selectedIndex + dir;
+      newIdx = Math.max(0, Math.min(DOMAINS.length - 1, newIdx));
+      setSelectedIndex(newIdx);
+      angleOffset.set(-newIdx * ITEM_ANGLE);
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -21,76 +189,90 @@ export default function DomainSelectorModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center items-center bg-black/80 backdrop-blur-md p-4"
+          className="absolute inset-0 z-50 overflow-hidden bg-slate-950/80 backdrop-blur-2xl"
           onClick={onClose}
         >
-          <motion.div 
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="w-full max-w-md bg-slate-900 border border-slate-700/50 rounded-3xl overflow-hidden shadow-2xl shadow-sky-900/20"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="p-6 pb-4 border-b border-white/5 flex justify-between items-center bg-slate-800/50">
-              <div className="flex items-center gap-3 text-white">
-                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-sky-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-sky-500/30">
-                    <Compass className="w-5 h-5 text-white" />
-                 </div>
-                 <div>
-                   <h2 className="text-xl font-black tracking-tight drop-shadow-md">Discover</h2>
-                   <p className="text-xs text-slate-400 font-medium">Select a platform segment</p>
-                 </div>
-              </div>
-              <button 
-                onClick={onClose}
-                className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-rose-500 transition-colors"
+          {/* Close button */}
+          <div className="absolute top-8 right-8 z-50">
+            <button 
+              onClick={onClose}
+              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-rose-500/80 transition-all border border-white/5"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="w-full h-full relative" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-8 left-8 pointer-events-none">
+              <h2 className="text-2xl font-black text-white/90 drop-shadow-lg tracking-wide">Discover</h2>
+              <p className="text-sm font-bold text-slate-400 mt-1">Select your path</p>
+            </div>
+
+            {/* Invisible wheel capture area */}
+            <motion.div
+              className="absolute left-[-50px] bottom-[-50px] w-[350px] h-[350px] z-10"
+              style={{ touchAction: "none", borderRadius: "50%" }}
+              onPan={handlePan}
+              onPanEnd={handlePanEnd}
+              onWheel={handleWheel}
+            />
+
+            {/* Arc Center acts as the hinge. We place it near bottom left. */}
+            <div ref={hingeRef} className="absolute left-[30px] bottom-[30px] w-1 h-1 pointer-events-none z-20">
+              {DOMAINS.map((domain, i) => (
+                <CircularItem
+                  key={domain.id}
+                  domain={domain}
+                  index={i}
+                  selectedIndex={selectedIndex}
+                  setSelectedIndex={setSelectedIndex}
+                  springOffset={springOffset}
+                  angleOffset={angleOffset}
+                  onPan={handlePan}
+                  onPanEnd={handlePanEnd}
+                />
+              ))}
+            </div>
+
+            {/* Magnifying Bubble for Active Item */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+              <motion.div 
+                key={activeDomain.id}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 150, damping: 20 }}
+                className="w-64 h-64 sm:w-72 sm:h-72 rounded-full flex flex-col items-center justify-center p-8 backdrop-blur-3xl bg-slate-800/40 border border-t-white/30 border-l-white/20 border-b-black/50 border-r-black/50 shadow-2xl relative overflow-hidden pointer-events-auto cursor-pointer group"
+                onClick={() => onSelectDomain(activeDomain.id, activeDomain.segments[0].id)}
+                style={{
+                  boxShadow: 'inset 0 20px 40px rgba(255,255,255,0.1), 0 20px 40px rgba(0,0,0,0.5)',
+                }}
               >
-                <X className="w-4 h-4" />
-              </button>
+                {/* Bubble highlight effect */}
+                <div className="absolute top-4 left-8 w-24 h-16 bg-white/20 rounded-[100%] rotate-[-20deg] blur-md pointer-events-none"></div>
+                
+                <motion.div 
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  className="flex flex-col items-center text-center z-10"
+                >
+                  <div className="mb-4 scale-150 drop-shadow-2xl">
+                    {ICONS[activeDomain.id]}
+                  </div>
+                  <h3 className="text-2xl font-black text-white tracking-tight drop-shadow-md mb-2">
+                    {activeDomain.name}
+                  </h3>
+                  <p className="text-xs text-white/70 font-bold uppercase tracking-widest mb-6">
+                    {activeDomain.label}
+                  </p>
+
+                  <button className="px-6 py-2 rounded-full bg-white text-slate-900 font-extrabold text-sm shadow-xl hover:scale-105 active:scale-95 transition-all outline-none">
+                    Explore
+                  </button>
+                </motion.div>
+              </motion.div>
             </div>
-            
-            <div className="p-4 max-h-[60vh] overflow-y-auto scrollbar-hide py-6">
-              <div className="grid gap-3">
-                 {DOMAINS.map(domain => {
-                   const isActive = domain.id === activeDomainId;
-                   return (
-                     <div 
-                       key={domain.id}
-                       onClick={() => onSelectDomain(domain.id, domain.segments[0].id)}
-                       className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col gap-3 group relative overflow-hidden ${
-                         isActive 
-                           ? 'border-sky-500 bg-sky-500/10 shadow-lg shadow-sky-500/10' 
-                           : 'border-slate-800 bg-slate-800/50 hover:bg-slate-800 hover:border-slate-600'
-                       }`}
-                     >
-                       {isActive && (
-                         <div className="absolute top-0 right-0 w-16 h-16 bg-sky-500/20 blur-2xl rounded-full -mr-8 -mt-8 pointer-events-none" />
-                       )}
-                       
-                       <div className="flex items-center justify-between relative z-10">
-                         <div>
-                           <h3 className={`text-base font-black tracking-wide ${isActive ? 'text-sky-400' : 'text-slate-200 group-hover:text-white transition-colors'}`}>
-                             {domain.name}
-                           </h3>
-                           <p className="text-xs text-slate-400 font-medium">{domain.label}</p>
-                         </div>
-                         <ChevronRight className={`w-5 h-5 transition-transform ${isActive ? 'text-sky-500 translate-x-1' : 'text-slate-600 group-hover:text-slate-400 group-hover:translate-x-1'}`} />
-                       </div>
-                       
-                       <div className="flex gap-2 flex-wrap mt-1 relative z-10">
-                         {domain.segments.map(seg => (
-                           <span key={seg.id} className="text-[10px] font-bold px-2 py-1 bg-black/40 text-slate-300 rounded-md border border-white/5">
-                             {seg.label}
-                           </span>
-                         ))}
-                       </div>
-                     </div>
-                   );
-                 })}
-              </div>
-            </div>
-          </motion.div>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>

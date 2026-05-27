@@ -69,6 +69,16 @@ export default function AdminDashboardTab() {
     }
   };
 
+  const handleVerifySeller = async (sellerId: string, isVerified: boolean) => {
+    try {
+      await updateDoc(doc(db, 'sellers', sellerId), {
+        isVerified
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 overflow-y-auto p-4 flex items-center justify-center">
@@ -164,19 +174,40 @@ export default function AdminDashboardTab() {
                   <p className="text-slate-400 text-xs">No sellers found</p>
                 ) : (
                   sellers.map(s => (
-                    <div key={s.id} className="bg-slate-800/80 p-3 rounded-lg flex justify-between items-center border border-slate-700">
-                       <div className="flex items-center gap-3">
-                         <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-slate-300 text-xs">
-                           {(s.displayName || s.email || s.id)[0].toUpperCase()}
+                    <div key={s.id} className="bg-slate-800/80 p-3 rounded-lg flex flex-col gap-3 border border-slate-700">
+                      <div className="flex justify-between items-center">
+                         <div className="flex items-center gap-3">
+                           <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-slate-300 text-xs">
+                             {(s.displayName || s.email || s.id)[0].toUpperCase()}
+                           </div>
+                           <div>
+                             <p className="text-white text-sm font-bold flex items-center gap-2">
+                               {s.displayName || s.email || 'Unknown User'}
+                               {s.isVerified && <CheckCircle2 className="w-3 h-3 text-blue-400" />}
+                             </p>
+                             <p className="text-slate-400 text-[10px] font-mono">{s.id}</p>
+                           </div>
                          </div>
-                         <div>
-                           <p className="text-white text-sm font-bold">{s.displayName || s.email || 'Unknown User'}</p>
-                           <p className="text-slate-400 text-[10px] mono">{s.id}</p>
-                         </div>
-                       </div>
-                       <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${s.isVerified ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700 text-slate-300'}`}>
-                         {s.isVerified ? 'Verified' : 'Unverified'}
-                       </span>
+                         <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${s.isVerified ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700 text-slate-300'}`}>
+                           {s.isVerified ? 'Verified' : 'Unverified'}
+                         </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => handleVerifySeller(s.id, true)}
+                          disabled={s.isVerified}
+                          className={`flex-1 py-1.5 rounded-md text-xs font-bold transition flex items-center justify-center gap-1 ${s.isVerified ? 'bg-blue-500/20 text-blue-400 opacity-50 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
+                        >
+                          <ShieldCheck className="w-3 h-3" /> Approve
+                        </button>
+                        <button 
+                          onClick={() => handleVerifySeller(s.id, false)}
+                          disabled={!s.isVerified}
+                          className={`flex-1 py-1.5 rounded-md text-xs font-bold transition flex items-center justify-center gap-1 ${!s.isVerified ? 'bg-slate-800 text-slate-500 opacity-50 cursor-not-allowed' : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-400'}`}
+                        >
+                          <XCircle className="w-3 h-3" /> Reject
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}

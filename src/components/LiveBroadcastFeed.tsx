@@ -203,7 +203,7 @@ export default function LiveBroadcastFeed({ isMuted, setIsMuted, isBroadcaster =
         </form>
       </div>
 
-      <div className={`absolute bottom-6 right-4 flex flex-col gap-3 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'} z-20`}>
+      <div className={`absolute bottom-[80px] right-4 flex flex-col gap-3 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'} z-20`}>
         {isBroadcaster && (
           <>
             <button 
