@@ -1076,7 +1076,7 @@ export default function App() {
                        </div>
                     )}
                  </div>
-                 {activeSegment === 'arena' ? <BidTimerMeter isStarted={currentItem.auctionStarted} /> : <BuyMeter productId={currentItem.id} />}
+                 {activeSegment === 'arena' ? <BidTimerMeter isStarted={currentItem.auctionStarted} /> : <BuyMeter productId={currentItem.id} activeDomainId={activeDomainId} />}
               </div>
             </motion.div>
           )}

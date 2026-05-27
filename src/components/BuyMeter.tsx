@@ -4,9 +4,21 @@ import { db } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 
-export default function BuyMeter({ productId }: { productId: string }) {
+export default function BuyMeter({ productId, activeDomainId = 'kinne' }: { productId: string, activeDomainId?: string }) {
   const [totalEvaluations, setTotalEvaluations] = useState(0);
   const [positiveCount, setPositiveCount] = useState(0);
+
+  const METER_CONFIG: Record<string, { title: string, positive: string, negative: string }> = {
+    kinne: { title: 'यो उत्पादन किन्ने कि नकिन्ने?', positive: 'किन्ने (Kinne)', negative: 'नकिन्ने (Nakinne)' },
+    khane: { title: 'यो खाने कि नखाने?', positive: 'खाने (Khane)', negative: 'नखाने (Nakhane)' },
+    jane: { title: 'यहाँ जाने कि नजाने?', positive: 'जाने (Jane)', negative: 'नजाने (Najane)' },
+    herne: { title: 'यो हेर्ने कि नहेर्ने?', positive: 'हेर्ने (Herne)', negative: 'नहेर्ने (Naherne)' },
+    garne: { title: 'यो गर्ने कि नगर्ने?', positive: 'गर्ने (Garne)', negative: 'नगर्ने (Nagarne)' },
+    khelne: { title: 'यो खेल्ने कि नखेल्ने?', positive: 'खेल्ने (Khelne)', negative: 'नखेल्ने (Nakhelne)' },
+    padhne: { title: 'यो पढ्ने कि नपढ्ने?', positive: 'पढ्ने (Padhne)', negative: 'नपढ्ने (Napadhne)' }
+  };
+
+  const config = METER_CONFIG[activeDomainId] || METER_CONFIG['kinne'];
 
   useEffect(() => {
     if (!productId) return;
@@ -42,7 +54,7 @@ export default function BuyMeter({ productId }: { productId: string }) {
 
   return (
     <div className="bg-slate-800/80 p-6 rounded-3xl border border-slate-700/50 flex flex-col items-center justify-center relative overflow-hidden mt-4 shadow-xl">
-      <h3 className="text-xl font-bold text-white mb-6 tracking-wide drop-shadow-md">यो उत्पादन किन्ने कि नकिन्ने?</h3>
+      <h3 className="text-xl font-bold text-white mb-6 tracking-wide drop-shadow-md">{config.title}</h3>
 
       {/* Meter Display Element */}
       <div className="relative w-full max-w-[320px] aspect-[2/1] overflow-hidden flex items-end justify-center mb-6">
@@ -113,12 +125,12 @@ export default function BuyMeter({ productId }: { productId: string }) {
 
         {/* Labels positioned inside the meter */}
         <div className="absolute top-[50%] left-6 text-center transform -rotate-[20deg] text-rose-500 font-bold">
-           <span className="block text-sm">नकिन्ने (Nakinnay)</span>
+           <span className="block text-sm">{config.negative}</span>
            <ThumbsDown className="w-5 h-5 mx-auto mt-1 opacity-80" />
         </div>
 
         <div className="absolute top-[50%] right-6 text-center transform rotate-[20deg] text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">
-           <span className="block text-sm">किन्ने (Kinnay)</span>
+           <span className="block text-sm">{config.positive}</span>
            <ThumbsUp className="w-5 h-5 mx-auto mt-1 opacity-90 fill-emerald-500/20" />
         </div>
 
