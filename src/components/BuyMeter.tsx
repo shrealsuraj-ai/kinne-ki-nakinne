@@ -2,7 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { motion } from 'motion/react';
-import { ThumbsUp, ThumbsDown, Users, LayoutTemplate } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Users, LayoutTemplate, Settings, Cog, CircleDashed } from 'lucide-react';
+
+const GearIcon = ({ className, color = "currentColor", variant = 1 }: { className?: string, color?: string, variant?: 1 | 2 }) => {
+  return (
+    <svg viewBox="0 0 100 100" className={className}>
+      {variant === 1 ? (
+        <path fill={color} fillRule="evenodd" d="M50 5C53 5 55 10 56 12L63 14C66 11 71 9 74 12C77 15 75 20 72 24L75 30C80 30 85 29 88 32C91 35 88 40 85 43L86 50C90 51 95 53 95 56C95 59 90 61 86 62L85 69C88 72 91 77 88 80C85 83 80 82 75 82L72 88C75 92 77 97 74 100C71 103 66 101 63 98L56 100C55 102 53 107 50 107C47 107 45 102 44 100L37 98C34 101 29 103 26 100C23 97 25 92 28 88L25 82C20 82 15 83 12 80C9 77 12 72 15 69L14 62C10 61 5 59 5 56C5 53 10 51 14 50L15 43C12 40 9 35 12 32C15 29 20 30 25 30L28 24C25 20 23 15 26 12C29 9 34 11 37 14L44 12C45 10 47 5 50 5ZM50 70C61.0457 70 70 61.0457 70 50C70 38.9543 61.0457 30 50 30C38.9543 30 30 38.9543 30 50C30 61.0457 38.9543 70 50 70Z M50 63C57.1797 63 63 57.1797 63 50C63 42.8203 57.1797 37 50 37C42.8203 37 37 42.8203 37 50C37 57.1797 42.8203 63 50 63Z" />
+      ) : (
+        <path fill={color} fillRule="evenodd" d="M50 10L56 10L59 20C63 21 66 23 69 25L78 20L84 26L79 35C82 38 84 41 85 45L95 48L95 56L85 59C84 63 82 66 79 69L84 78L78 84L69 79C66 81 63 83 59 84L56 94L50 94L45 84C41 83 38 81 35 79L26 84L20 78L25 69C22 66 20 63 19 59L9 56L9 48L19 45C20 41 22 38 25 35L20 26L26 20L35 25C38 23 41 21 45 20L50 10ZM50 65C58.28 65 65 58.28 65 50C65 41.72 58.28 35 50 35C41.72 35 35 41.72 35 50C35 58.28 41.72 65 50 65ZM45 50C45 52.76 47.24 55 50 55C52.76 55 55 52.76 55 50C55 47.24 52.76 45 50 45C47.24 45 45 47.24 45 50Z" />
+      )}
+    </svg>
+  );
+};
 
 export default function BuyMeter({ productId, activeDomainId = 'kinne' }: { productId: string, activeDomainId?: string }) {
   const [totalEvaluations, setTotalEvaluations] = useState(0);
@@ -255,9 +267,42 @@ export default function BuyMeter({ productId, activeDomainId = 'kinne' }: { prod
             </svg>
             
             {/* Decorational Gears */}
-            <div className="absolute top-[20%] left-[15%] w-12 h-12 opacity-30 border-4 border-[#5a461b] rounded-full border-dashed animate-[spin_10s_linear_infinite]" />
-            <div className="absolute top-[30%] right-[10%] w-16 h-16 opacity-30 border-[6px] border-[#5a461b] rounded-full border-dotted animate-[spin_15s_linear_infinite_reverse]" />
-            <div className="absolute top-[60%] left-[5%] w-8 h-8 opacity-40 border-[3px] border-[#4a3b1a] rounded-full border-dashed animate-[spin_8s_linear_infinite]" />
+            <div className="absolute inset-0 pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+               <div className="absolute top-[20%] left-[10%] w-16 h-16 flex items-center justify-center">
+                  <GearIcon className="absolute w-full h-full animate-[spin_8s_linear_infinite]" color="#b08d2b" variant={1} />
+                  <div className="w-3 h-3 rounded-full bg-[#2a2210] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] border border-[#6b5b3a] z-10" />
+               </div>
+               
+               <div className="absolute top-[34%] left-[24%] w-12 h-12 flex items-center justify-center">
+                  <GearIcon className="absolute w-full h-full animate-[spin_6s_linear_infinite_reverse]" color="#8a6d2b" variant={2} />
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#2a2210] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] border border-[#4a3b1a] z-10" />
+               </div>
+
+               <div className="absolute top-[15%] right-[12%] w-14 h-14 flex items-center justify-center">
+                  <GearIcon className="absolute w-full h-full animate-[spin_10s_linear_infinite_reverse]" color="#6b5b3a" variant={1} />
+                  <div className="w-3 h-3 rounded-full bg-[#111] shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)] z-10" />
+               </div>
+
+               <div className="absolute top-[40%] right-[3%] w-10 h-10 flex items-center justify-center">
+                  <GearIcon className="absolute w-full h-full animate-[spin_5s_linear_infinite]" color="#4a3b1a" variant={2} />
+                  <div className="w-2 h-2 rounded-full bg-[#b08d2b] shadow-[inset_0_1px_2px_rgba(0,0,0,0.6)] border border-[#2a2210] z-10" />
+               </div>
+
+               <div className="absolute top-[55%] left-[5%] w-12 h-12 flex items-center justify-center">
+                  <Settings className="absolute w-full h-full text-[#9c782b] opacity-80 animate-[spin_12s_linear_infinite]" strokeWidth={1.5} />
+                  <div className="w-2 h-2 rounded-full bg-[#2a2210] z-10" />
+               </div>
+
+               <div className="absolute top-[62%] left-[17%] w-8 h-8 flex items-center justify-center">
+                  <Cog className="absolute w-full h-full text-[#5a461b] opacity-90 animate-[spin_4s_linear_infinite_reverse]" strokeWidth={2} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#8a6d2b] z-10" />
+               </div>
+
+               <div className="absolute top-[55%] right-[18%] w-[50px] h-[50px] flex items-center justify-center">
+                  <GearIcon className="absolute w-full h-full animate-[spin_7s_linear_infinite]" color="#8a6d2b" variant={1} />
+                  <div className="w-3 h-3 rounded-full bg-[#111] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] border border-[#6b5b3a] z-10" />
+               </div>
+            </div>
 
             {/* Scale Numerals inside meter */}
             <div className="absolute w-full h-[50%] bottom-0 pointer-events-none text-[#2a2210] font-mono text-[8px] font-black opacity-60">
@@ -269,13 +314,13 @@ export default function BuyMeter({ productId, activeDomainId = 'kinne' }: { prod
             </div>
 
             {/* Labels */}
-            <div className="absolute bottom-6 left-5 text-[#2a2210] text-center w-20 drop-shadow-[0_1px_0px_rgba(255,255,255,0.4)]">
-              <span className="text-sm font-black block tracking-tighter">{config.negative}</span>
-              <span className="text-[9px] font-bold uppercase opacity-80">{config.negEnglish}</span>
+            <div className="absolute bottom-6 left-4 text-[#8b3a2b] text-center w-24 drop-shadow-[0_1px_0px_rgba(255,255,255,0.5)]">
+              <span className="text-xl font-black block tracking-tighter leading-none">{config.negative}</span>
+              <span className="text-[10px] font-bold uppercase opacity-80 text-[#4a3b1a]">{config.negEnglish}</span>
             </div>
-            <div className="absolute bottom-6 right-5 text-[#2a2210] text-center w-20 drop-shadow-[0_1px_0px_rgba(255,255,255,0.4)]">
-              <span className="text-sm font-black block tracking-tighter">{config.positive}</span>
-              <span className="text-[9px] font-bold uppercase opacity-80">{config.posEnglish}</span>
+            <div className="absolute bottom-6 right-4 text-[#356038] text-center w-24 drop-shadow-[0_1px_0px_rgba(255,255,255,0.5)]">
+              <span className="text-xl font-black block tracking-tighter leading-none">{config.positive}</span>
+              <span className="text-[10px] font-bold uppercase opacity-80 text-[#4a3b1a]">{config.posEnglish}</span>
             </div>
           </div>
 
@@ -286,10 +331,23 @@ export default function BuyMeter({ productId, activeDomainId = 'kinne' }: { prod
               transition={{ duration: 1.5, ease: "easeOut" }}
               style={{ height: '110px', width: '6px', background: 'transparent', marginLeft: '-3px' }}
           >
-              <div className="w-full bg-gradient-to-r from-[#222] via-[#444] to-[#111] absolute top-[15px] shadow-[0_0_5px_rgba(0,0,0,0.8)] border-[1px] border-[#7a5d22]" style={{ height: '85px', borderRadius: '4px' }} />
+              <div 
+                className="w-full absolute top-[15px] shadow-[0_0_5px_rgba(0,0,0,0.8)] border-[1px] transition-colors duration-1000" 
+                style={{ 
+                  height: '85px', borderRadius: '4px',
+                  background: scorePercentage > 60 ? 'linear-gradient(to right, #1d331e, #356038, #1d331e)' : scorePercentage < 40 ? 'linear-gradient(to right, #4a1d17, #8b3a2b, #4a1d17)' : 'linear-gradient(to right, #222, #444, #111)',
+                  borderColor: scorePercentage > 60 ? '#4caf50' : scorePercentage < 40 ? '#f44336' : '#7a5d22'
+                }} 
+              />
               {/* Ornate needle tip */}
-              <div className="absolute top-[0px] left-[50%] -translate-x-1/2 w-0 h-0 border-b-[18px] border-b-[#8a6d2b] border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent drop-shadow-md" />
-              <div className="absolute top-[2px] left-[50%] -translate-x-1/2 w-0 h-0 border-b-[15px] border-b-[#444] border-l-[2px] border-l-transparent border-r-[2px] border-r-transparent" />
+              <div 
+                className="absolute top-[0px] left-[50%] -translate-x-1/2 w-0 h-0 border-b-[18px] border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent drop-shadow-md transition-colors duration-1000" 
+                style={{ borderBottomColor: scorePercentage > 60 ? '#4caf50' : scorePercentage < 40 ? '#f44336' : '#8a6d2b' }}
+              />
+              <div 
+                className="absolute top-[2px] left-[50%] -translate-x-1/2 w-0 h-0 border-b-[15px] border-l-[2px] border-l-transparent border-r-[2px] border-r-transparent transition-colors duration-1000" 
+                style={{ borderBottomColor: scorePercentage > 60 ? '#356038' : scorePercentage < 40 ? '#8b3a2b' : '#444' }}
+              />
           </motion.div>
 
           {/* Steampunk Needle Hub */}
