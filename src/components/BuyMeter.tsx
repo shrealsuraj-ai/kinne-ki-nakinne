@@ -28,7 +28,8 @@ export default function BuyMeter({ productId, activeDomainId = 'kinne' }: { prod
     herne: { title: 'यो हेर्ने कि नहेर्ने?', positive: 'हेर्ने', negative: 'नहेर्ने', posEnglish: 'WATCH', negEnglish: 'NOT TO WATCH' },
     garne: { title: 'यो गर्ने कि नगर्ने?', positive: 'गर्ने', negative: 'नगर्ने', posEnglish: 'DO', negEnglish: 'NOT TO DO' },
     khelne: { title: 'यो खेल्ने कि नखेल्ने?', positive: 'खेल्ने', negative: 'नखेल्ने', posEnglish: 'PLAY', negEnglish: 'NOT TO PLAY' },
-    padhne: { title: 'यो पढ्ने कि नपढ्ने?', positive: 'पढ्ने', negative: 'नपढ्ने', posEnglish: 'STUDY', negEnglish: 'NOT TO STUDY' }
+    padhne: { title: 'यो पढ्ने कि नपढ्ने?', positive: 'पढ्ने', negative: 'नपढ्ने', posEnglish: 'STUDY', negEnglish: 'NOT TO STUDY' },
+    lagaune: { title: 'यो लगाउने कि नलगाउने?', positive: 'लगाउने', negative: 'नलगाउने', posEnglish: 'WEAR', negEnglish: 'NOT TO WEAR' }
   };
 
   const config = METER_CONFIG[activeDomainId] || METER_CONFIG['kinne'];

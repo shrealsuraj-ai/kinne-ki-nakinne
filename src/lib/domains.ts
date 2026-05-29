@@ -9,8 +9,10 @@ export interface Domain {
 export const DOMAINS: Domain[] = [
   { id: 'kinne', name: 'Kinne Ki Nakinne?', label: 'Buy or Not to Buy (Shopping)', primaryAction: 'KINNE!', segments: [
     { id: 'feed', label: 'Products', color: 'emerald' },
-    { id: 'arena', label: 'Auction', color: 'rose' },
     { id: 'remarket', label: 'Second Hand', color: 'amber' }
+  ]},
+  { id: 'boli', name: 'Boli Lagaune Ki Nalagaune?', label: 'To Bid or Not to Bid (Live Auctions)', primaryAction: 'BID!', segments: [
+    { id: 'arena', label: 'Live Auctions', color: 'rose' }
   ]},
   { id: 'khane', name: 'Khane Ki Nakhane?', label: 'Eat or Not to Eat (Food)', primaryAction: 'KHANE!', segments: [
     { id: 'food', label: 'Food', color: 'orange' },
@@ -41,5 +43,11 @@ export const DOMAINS: Domain[] = [
     { id: 'courses', label: 'Courses', color: 'blue' },
     { id: 'schools', label: 'Schools', color: 'indigo' },
     { id: 'consultancy', label: 'Consultancy', color: 'cyan' }
+  ]},
+  { id: 'lagaune', name: 'Lagaune Ki Nalagaune?', label: 'Wear or Not to Wear (Wearables/Accessories)', primaryAction: 'LAGAUNE!', segments: [
+    { id: 'clothes', label: 'Clothes', color: 'pink' },
+    { id: 'shoes', label: 'Shoes', color: 'orange' },
+    { id: 'accessories', label: 'Accessories', color: 'amber' },
+    { id: 'jewelry', label: 'Jewelry', color: 'purple' }
   ]}
 ];

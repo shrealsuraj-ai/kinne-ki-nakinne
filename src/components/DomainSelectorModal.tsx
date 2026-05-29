@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, MotionValue, PanInfo } from 'motion/react';
-import { X, Search, ShoppingBag, Utensils, Compass, Tv, Briefcase, GraduationCap, Gamepad2, Grid, LayoutTemplate } from 'lucide-react';
+import { X, Search, ShoppingBag, Utensils, Compass, Tv, Briefcase, GraduationCap, Gamepad2, Grid, LayoutTemplate, Shirt, Gavel } from 'lucide-react';
 import { DOMAINS, Domain } from '../lib/domains';
 
 const ICONS: Record<string, React.ReactNode> = {
   kinne: <ShoppingBag className="w-6 h-6 text-emerald-400" />,
+  boli: <Gavel className="w-6 h-6 text-rose-400" />,
   khane: <Utensils className="w-6 h-6 text-orange-400" />,
   jane: <Compass className="w-6 h-6 text-blue-400" />,
   herne: <Tv className="w-6 h-6 text-indigo-400" />,
   garne: <Briefcase className="w-6 h-6 text-teal-400" />,
   padhne: <GraduationCap className="w-6 h-6 text-cyan-400" />,
   khelne: <Gamepad2 className="w-6 h-6 text-rose-400" />,
+  lagaune: <Shirt className="w-6 h-6 text-pink-400" />,
 };
 
 function CircularItem({
@@ -24,6 +26,7 @@ function CircularItem({
   onPan,
   onPanEnd
 }: {
+  key?: string | number;
   domain: Domain;
   index: number;
   selectedIndex: number;
@@ -248,7 +251,7 @@ export default function DomainSelectorModal({
 
             {/* Invisible wheel capture area (size varies by mode) */}
             <motion.div
-              className={`absolute z-10 ${viewMode === 'bottom' ? 'left-1/2 bottom-0 -translate-x-1/2 w-[500px] h-[250px] rounded-t-full rounded-b-none origin-bottom' : (viewMode === 'corner-left' ? 'left-[-50px] bottom-[-50px] w-[350px] h-[350px] rounded-full' : 'right-[-50px] bottom-[-50px] w-[350px] h-[350px] rounded-full')}`}
+              className={`absolute z-10 ${viewMode === 'bottom' ? 'left-1/2 -bottom-[80px] -translate-x-1/2 w-[500px] h-[250px] rounded-t-full rounded-b-none origin-bottom' : (viewMode === 'corner-left' ? 'left-[-50px] bottom-[-50px] w-[350px] h-[350px] rounded-full' : 'right-[-50px] bottom-[-50px] w-[350px] h-[350px] rounded-full')}`}
               style={{ touchAction: "none" }}
               onPan={handlePan}
               onPanEnd={handlePanEnd}
@@ -260,7 +263,7 @@ export default function DomainSelectorModal({
               ref={hingeRef} 
               className={`absolute pointer-events-none z-20 transition-all duration-700 w-1 h-1 ${
                 viewMode === 'bottom' 
-                  ? 'left-1/2 bottom-0 -translate-x-1/2' 
+                  ? 'left-1/2 -bottom-[80px] -translate-x-1/2' 
                   : (viewMode === 'corner-left' ? 'left-[30px] bottom-[30px]' : 'right-[30px] bottom-[30px]')
               }`}
             >

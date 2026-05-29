@@ -11,6 +11,7 @@ import AdminDashboardTab from './AdminDashboardTab';
 import InventoryTab from './InventoryTab';
 import NotificationsTab from './NotificationsTab';
 import AnalyticsTab from './AnalyticsTab';
+import SettingsTab from './SettingsTab';
 
 interface ProfileDashboardProps {
   isOpen: boolean;
@@ -226,11 +227,18 @@ export default function ProfileDashboard({ isOpen, onClose, onProductClick, view
                      >
                        <Shield className="w-4 h-4" /> Moderation
                      </button>
+                     <button 
+                       onClick={() => setActiveTab('settings')}
+                       className={`px-4 pb-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'settings' ? 'text-emerald-400 border-b-2 border-emerald-500' : 'text-slate-500 hover:text-slate-300'}`}
+                     >
+                       <Settings className="w-4 h-4" /> Settings
+                     </button>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4 hide-scrollbar">
                      {activeTab === 'profile' && <CasualProfileTab user={user!} onViewOrders={() => {}} />}
                      {activeTab === 'inventory' && <InventoryTab />}
                      {activeTab === 'admin' && <AdminDashboardTab />}
+                     {activeTab === 'settings' && <SettingsTab />}
                   </div>
                </div>
             ) : activeProfile === 'seller' ? (
@@ -279,6 +287,12 @@ export default function ProfileDashboard({ isOpen, onClose, onProductClick, view
                      >
                        <Heart className="w-4 h-4" /> Saved
                      </button>
+                     <button 
+                       onClick={() => setActiveTab('settings')}
+                       className={`px-4 pb-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'settings' ? 'text-emerald-400 border-b-2 border-emerald-500' : 'text-slate-500 hover:text-slate-300'}`}
+                     >
+                       <Settings className="w-4 h-4" /> Settings
+                     </button>
                   </div>
 
                   {/* Main Content Area */}
@@ -313,6 +327,7 @@ export default function ProfileDashboard({ isOpen, onClose, onProductClick, view
                      {activeTab === 'orders' && <OrderHistoryTab />}
                      {activeTab === 'analytics' && <AnalyticsTab />}
                      {activeTab === 'saved' && renderWishlistTab()}
+                     {activeTab === 'settings' && <SettingsTab />}
                   </div>
                </>
             ) : (
@@ -337,6 +352,12 @@ export default function ProfileDashboard({ isOpen, onClose, onProductClick, view
                      >
                        <Heart className="w-4 h-4" /> Saved
                      </button>
+                     <button 
+                       onClick={() => setActiveTab('settings')}
+                       className={`flex-1 pb-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'settings' ? 'text-emerald-400 border-b-2 border-emerald-500' : 'text-slate-500 hover:text-slate-300'}`}
+                     >
+                       <Settings className="w-4 h-4" /> Settings
+                     </button>
                   </div>
                   
                   {activeTab === 'profile' && <CasualProfileTab user={user} onViewOrders={() => setActiveTab('orders')} />}
@@ -350,6 +371,7 @@ export default function ProfileDashboard({ isOpen, onClose, onProductClick, view
                       {renderWishlistTab()}
                     </div>
                   )}
+                  {activeTab === 'settings' && <SettingsTab />}
                </div>
             )}
 

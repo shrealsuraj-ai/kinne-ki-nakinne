@@ -252,6 +252,145 @@ const MediaSlideshow = ({ urls }: { urls: string[] }) => {
   );
 };
 
+const DEFAULT_WEARABLE_PRODUCTS = [
+  {
+    id: "default_clothes_1",
+    sellerId: "seller_doko",
+    seller: "DokoFashion",
+    title: "Handwoven Pink Dhaka Cholo",
+    price: 4500,
+    segment: "clothes",
+    type: "image",
+    url: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80",
+    description: "Traditional Nepali Dhaka fabric, meticulously handwoven by local artisans. Elegant pink and gold design, perfect for special heritage wear.",
+    isVerified: true,
+    reviewCount: 12,
+    ratingSum: 58,
+    keyFeatures: ["100% pure cotton thread", "In-woven traditional pattern", "Comfortable lightweight lining"],
+    specifications: { "Fabric": "Dhaka & Cotton", "Origin": "Tehrathum, Nepal", "Fit": "Custom tailored look" },
+    category: "Apparel"
+  },
+  {
+    id: "default_clothes_2",
+    sellerId: "seller_sherpa",
+    seller: "HimalayanWear",
+    title: "Handmade Sherpa Wool Coat",
+    price: 7200,
+    segment: "clothes",
+    type: "image",
+    url: "https://images.unsplash.com/photo-1544022613-e87ca75a784a?auto=format&fit=crop&w=600&q=80",
+    description: "Rugged hand-knitted woolen winter coat lined with native fleece. Designed to withstand the coldest temperatures with classic mountainous style.",
+    isVerified: true,
+    reviewCount: 8,
+    ratingSum: 39,
+    keyFeatures: ["Virgin Himalayan sheep wool", "Extra-insulated thermal pockets", "Classic wooden horn buttons"],
+    specifications: { "Material": "100% Sheep Wool", "Lining": "Faux Fur Sherpa", "Weight": "1.2 kg" },
+    category: "Apparel"
+  },
+  {
+    id: "default_shoes_1",
+    sellerId: "seller_sherpa",
+    seller: "SherpaLeather",
+    title: "Handcrafted Yak Leather Boots",
+    price: 8500,
+    segment: "shoes",
+    type: "image",
+    url: "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?auto=format&fit=crop&w=600&q=80",
+    description: "Durable and waterproof boots crafted from premium Himalayan Yak leather. Featuring a heavy-duty rugged Vibram rubber outsole for lifetime wear.",
+    isVerified: true,
+    reviewCount: 15,
+    ratingSum: 73,
+    keyFeatures: ["Genuine hardened Yak grain leather", "Triple seam stitching for water barrier", "Ornate speed-lace metal hooks"],
+    specifications: { "Leather Type": "Sustainably-sourced Yak", "Sole": "Vibram Commando", "Color": "Steampunk Vintage Brown" },
+    category: "Footwear"
+  },
+  {
+    id: "default_shoes_2",
+    sellerId: "seller_kath",
+    seller: "KathmanduCrafts",
+    title: "Embroidered Resham Slippers",
+    price: 1800,
+    segment: "shoes",
+    type: "image",
+    url: "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=600&q=80",
+    description: "Soft velvet slippers detailed with traditional multi-color Resham hand-embroidery. Super lightweight comfort for home and indoor gathering.",
+    isVerified: true,
+    reviewCount: 4,
+    ratingSum: 16,
+    keyFeatures: ["Hand-embroidered silk threads", "Orthopedic cushion padding", "Ultra-grip felt and suede sole"],
+    specifications: { "Upper": "Pure Royal Velvet", "Embroidery": "Resham Silk thread", "Made in": "Patan, Nepal" },
+    category: "Footwear"
+  },
+  {
+    id: "default_accessories_1",
+    sellerId: "seller_gurkha",
+    seller: "GurkhaStyles",
+    title: "Khukuri Crest Leather Belt & Wallet",
+    price: 3200,
+    segment: "accessories",
+    type: "image",
+    url: "https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=600&q=80",
+    description: "Polished heavy full-grain cowhide leather belt paired with matching bi-fold minimalist wallet. Embossed with the historic twin Khukuri emblem.",
+    isVerified: true,
+    reviewCount: 9,
+    ratingSum: 44,
+    keyFeatures: ["Premium full-grain steer hide", "Antique brass finish buckle", "RFID protected wallet compartments"],
+    specifications: { "Belt Size": "Width 1.5 inches, Adjustable", "Buckle": "Solid Brass", "Wallet": "Twin Khukuri hot-stamp" },
+    category: "Accessories"
+  },
+  {
+    id: "default_accessories_2",
+    sellerId: "seller_pashmina",
+    seller: "PashminaPalace",
+    title: "Pure Cashmere Pashmina Shawl",
+    price: 6500,
+    segment: "accessories",
+    type: "image",
+    url: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80",
+    description: "An incredibly luxurious shawl handcrafted in Changu Narayan using Grade-A cashmere thread. Offering unparalleled warmth, softness, and air-light drapes.",
+    isVerified: true,
+    reviewCount: 22,
+    ratingSum: 110,
+    keyFeatures: ["100% fine hair Himalayan Chyangra Cashmere", "Individually hand-loomed and combed", "Feather-light weave weighing under 120g"],
+    specifications: { "Grade": "AAA Himalayan Cashmere", "Size": "200 cm x 70 cm", "Care": "Dry clean only" },
+    category: "Accessories"
+  },
+  {
+    id: "default_jewelry_1",
+    sellerId: "seller_gold",
+    seller: "GoldDiamondStudio",
+    title: "Sterling Silver Raw Ruby Ring",
+    price: 15500,
+    segment: "jewelry",
+    type: "image",
+    url: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80",
+    description: "Ornate bohemian steampunk-style sterling silver ring framing a natural, unpolished Nepali raw ruby crystal mined from the high Ganesh Himal range.",
+    isVerified: true,
+    reviewCount: 11,
+    ratingSum: 55,
+    keyFeatures: ["Authentic high-altitude Ganesh Himal Ruby", "Industrial-grade raw finish claw setting", "Solid tarnish-resistant Sterling Silver casing"],
+    specifications: { "Gem": "1.5 carat uncut Raw Ruby", "Metal": "925 Sterling Silver", "Band Style": "Steampunk Ornate Filigree" },
+    category: "Jewelry"
+  },
+  {
+    id: "default_jewelry_2",
+    sellerId: "seller_koteshwor",
+    seller: "KoteshworJewels",
+    title: "Filigree Jhumka Earrings",
+    price: 5200,
+    segment: "jewelry",
+    type: "image",
+    url: "https://images.unsplash.com/photo-1635767798638-3e25273a8236?auto=format&fit=crop&w=600&q=80",
+    description: "Stunning 22k gold-plated solid brass filigree drop earrings. Beautiful traditional umbrella-shaped design with intricate hanging pearl drop beads.",
+    isVerified: true,
+    reviewCount: 7,
+    ratingSum: 33,
+    keyFeatures: ["Traditional Nepalese Jhumka mold", "Deep filigree lattice details", "Hypoallergenic lightweight studs"],
+    specifications: { "Plating": "22k Yellow Gold", "Core": "Premium Jewelers Brass", "Height": "4.5 cm" },
+    category: "Jewelry"
+  }
+];
+
 export default function App() {
   const [videos, setVideos] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -375,7 +514,10 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const displayedVideos = videos.filter(v => (v.segment || 'feed') === activeSegment) || [];
+  const displayedVideos = [
+    ...videos,
+    ...DEFAULT_WEARABLE_PRODUCTS
+  ].filter(v => (v.segment || 'feed') === activeSegment) || [];
   
   // Prevent out of bounds
   const currentItem = displayedVideos.length > 0 ? displayedVideos[currentIndex % displayedVideos.length] : null;
@@ -659,13 +801,14 @@ export default function App() {
                 <div className="flex-1 pr-12">
                   <h3 className="text-white font-extrabold text-sm tracking-wide mb-1 flex items-center gap-2 drop-shadow-md">
                     @{currentItem.seller}
-                    {(activeSegment === 'feed' || activeSegment === 'remarket') && currentItem.isVerified && (
+                    {(activeSegment === 'feed' || activeSegment === 'remarket' || ['clothes', 'shoes', 'accessories', 'jewelry'].includes(activeSegment)) && currentItem.isVerified && (
                       <span className="flex items-center gap-1 text-blue-400">
                         <BadgeCheck className="w-4 h-4 fill-blue-500 text-white" />
                       </span>
                     )}
                     {activeSegment === 'arena' && <span className="bg-rose-600 px-2 py-0.5 rounded text-[10px] font-black animate-pulse text-white shadow-lg shadow-rose-600/50">LIVE HOST</span>}
                     {activeSegment === 'remarket' && <span className="bg-amber-500/80 backdrop-blur-md border border-amber-400 px-2 py-0.5 rounded text-[10px] font-black text-white shadow-lg">Good Condition</span>}
+                    {['clothes', 'shoes', 'accessories', 'jewelry'].includes(activeSegment) && <span className="bg-emerald-500/80 backdrop-blur-md border border-emerald-400 px-2 py-0.5 rounded text-[10px] font-black text-white shadow-lg">Premium Quality</span>}
                   </h3>
                   {currentItem.sellerId && (
                     <div className="mb-1 pointer-events-auto">
@@ -868,7 +1011,7 @@ export default function App() {
                         <span className="font-bold text-xl text-white">NPR {currentItem.price}</span>
                       </div>
                     )}
-                     {activeSegment === 'remarket' && (
+                     {(activeSegment === 'remarket' || ['clothes', 'shoes', 'accessories', 'jewelry'].includes(activeSegment)) && (
                          <div className="flex justify-between items-center text-amber-500 text-xs font-bold mt-2 pt-2 border-t border-slate-700">
                            <span>AI Verification Score:</span>
                            <span>98% Authentic</span>

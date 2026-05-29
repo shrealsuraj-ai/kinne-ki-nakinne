@@ -19,7 +19,7 @@
         "price": { "type": "number" },
         "discount": { "type": "number" },
         "stock": { "type": "number" },
-        "segment": { "type": "string", "enum": ["feed", "arena", "remarket"] },
+        "segment": { "type": "string", "enum": ["feed", "arena", "remarket", "clothes", "shoes", "accessories", "jewelry"] },
         "type": { "type": "string", "enum": ["video", "image"] },
         "url": { "type": "string" },
         "uploadStatus": { "type": "string" },
