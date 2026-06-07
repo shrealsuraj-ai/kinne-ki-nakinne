@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Send, Image as ImageIcon, Box, ArrowLeft, MoreVertical, ExternalLink, MessageCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/firebase';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, writeBatch, limit } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, writeBatch, limit, getDoc } from 'firebase/firestore';
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -102,6 +102,56 @@ export default function ChatPanel({ isOpen, onClose, conversationId, otherUser }
       // Updating unreadCount accurately requires fetching the current count or using FieldValue.increment
       
       await batch.commit();
+
+      // Automated FAQ Logic
+      const sellerSnap = await getDoc(doc(db, 'sellers', otherUser.id));
+      let autoReplyMsg = "";
+
+      if (sellerSnap.exists()) {
+          const faqPairs = sellerSnap.data().faqPairs || [];
+          const lowercaseText = text.toLowerCase();
+          
+          // Legacy support or fallback logic
+          if (lowercaseText.includes('moq') || lowercaseText.includes('minimum order quantity')) {
+             if (sellerSnap.data().autoFaqMoq) autoReplyMsg = sellerSnap.data().autoFaqMoq;
+          } else if (lowercaseText.includes('sample') || lowercaseText.includes('samples')) {
+             if (sellerSnap.data().autoFaqSample) autoReplyMsg = sellerSnap.data().autoFaqSample;
+          }
+
+          // Check against dynamic FAQ pairs
+          for (const pair of faqPairs) {
+              if (pair.question && pair.answer) {
+                  // If the user's message matches the trigger question closely
+                  if (lowercaseText === pair.question.toLowerCase() || lowercaseText.includes(pair.question.toLowerCase())) {
+                      autoReplyMsg = pair.answer;
+                      break;
+                  }
+              }
+          }
+      }
+
+      if (autoReplyMsg) {
+         setTimeout(async () => {
+             const replyBatch = writeBatch(db);
+             const replyMsgRef = doc(collection(db, 'conversations', conversationId, 'messages'));
+             replyBatch.set(replyMsgRef, {
+                 senderId: otherUser.id,
+                 text: autoReplyMsg,
+                 messageType: 'text',
+                 createdAt: serverTimestamp(),
+                 readBy: [otherUser.id],
+                 status: 'sent'
+             });
+             replyBatch.update(doc(db, 'conversations', conversationId), {
+                 lastMessage: autoReplyMsg,
+                 lastMessageTime: serverTimestamp(),
+                 lastMessageSenderId: otherUser.id,
+                 lastMessageType: 'text',
+                 updatedAt: serverTimestamp()
+             });
+             await replyBatch.commit().catch(console.error);
+         }, 1000);
+      }
 
     } catch (err) {
       console.error('Error sending message:', err);

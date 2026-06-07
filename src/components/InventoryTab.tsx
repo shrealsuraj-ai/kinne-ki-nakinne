@@ -4,9 +4,12 @@ import { db } from '../lib/firebase';
 import { Package, Edit2, Trash2, Video, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
+import { useDomains } from '../contexts/DomainContext';
+import { transformProductPricing, getDynamicPrice } from '../lib/pricing';
 
 export default function InventoryTab() {
   const { user } = useAuth();
+  const { commissions } = useDomains();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
@@ -19,15 +22,15 @@ export default function InventoryTab() {
       orderBy('createdAt', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedProducts = snapshot.docs.map(doc => ({
+      const fetchedProducts = snapshot.docs.map(doc => transformProductPricing({
         id: doc.id,
         ...doc.data()
-      }));
+      }, commissions));
       setProducts(fetchedProducts);
       setLoading(false);
     }, (error) => console.error("Error fetching inventory: ", error));
     return () => unsubscribe();
-  }, [user]);
+  }, [user, commissions]);
 
   const handleDelete = async (productId: string) => {
     try {
@@ -41,6 +44,8 @@ export default function InventoryTab() {
     if (e && e.preventDefault) e.preventDefault();
     if (!editingProduct) return;
     try {
+      // Calculate dynamic price based on their new basePrice
+      const dynamicPrice = getDynamicPrice({ ...editingProduct, basePrice: parseFloat(editingProduct.basePrice) || parseFloat(editingProduct.price) }, commissions);
       await updateDoc(doc(db, 'products', editingProduct.id), {
         title: editingProduct.title || '',
         shortHeadline: editingProduct.shortHeadline || '',
@@ -48,7 +53,8 @@ export default function InventoryTab() {
         category: editingProduct.category || '',
         stock: parseInt(editingProduct.stock) || 1,
         discount: parseFloat(editingProduct.discount) || 0,
-        price: parseFloat(editingProduct.price) || 0,
+        basePrice: parseFloat(editingProduct.basePrice) || parseFloat(editingProduct.price) || 0,
+        price: dynamicPrice || parseFloat(editingProduct.price) || 0,
         description: editingProduct.description || '',
         longDescription: editingProduct.description || '',
         url: editingProduct.url || '',
@@ -173,8 +179,8 @@ export default function InventoryTab() {
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Price (NPR)</label>
-                    <input required type="number" step="1" value={editingProduct.price || 0} onChange={e => setEditingProduct({...editingProduct, price: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Base Price (NPR)</label>
+                    <input required type="number" step="1" value={editingProduct.basePrice || editingProduct.price || 0} onChange={e => setEditingProduct({...editingProduct, basePrice: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Discount (%)</label>

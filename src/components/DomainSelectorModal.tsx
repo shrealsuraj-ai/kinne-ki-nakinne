@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, MotionValue, PanInfo } from 'motion/react';
-import { X, Search, ShoppingBag, Utensils, Compass, Tv, Briefcase, GraduationCap, Gamepad2, Grid, LayoutTemplate, Shirt, Gavel } from 'lucide-react';
+import { X, Search, ShoppingBag, Utensils, Compass, Tv, Briefcase, GraduationCap, Gamepad2, Grid, LayoutTemplate, Shirt, Gavel, Home } from 'lucide-react';
 import { DOMAINS, Domain } from '../lib/domains';
 
 const ICONS: Record<string, React.ReactNode> = {
   kinne: <ShoppingBag className="w-6 h-6 text-emerald-400" />,
+  line: <Home className="w-6 h-6 text-yellow-400" />,
   boli: <Gavel className="w-6 h-6 text-rose-400" />,
   khane: <Utensils className="w-6 h-6 text-orange-400" />,
   jane: <Compass className="w-6 h-6 text-blue-400" />,

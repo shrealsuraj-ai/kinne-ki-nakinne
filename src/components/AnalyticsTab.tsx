@@ -35,7 +35,7 @@ export default function AnalyticsTab() {
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [realTotalSales, setRealTotalSales] = useState<number>(0);
   const [realTotalViews, setRealTotalViews] = useState<number>(0);
-  const [segmentEarnings, setSegmentEarnings] = useState<Record<string, number>>({'feed': 0, 'arena': 0, 'remarket': 0});
+  const [segmentEarnings, setSegmentEarnings] = useState<Record<string, number>>({'products': 0, 'live-auction': 0, 'wholesale': 0, 'second-hand': 0, 'group-offers': 0});
 
   useEffect(() => {
     const fetchRealData = async () => {
@@ -64,9 +64,11 @@ export default function AnalyticsTab() {
         // Structures for charts and segment splits
         const dailySalesMap: Record<string, number> = {};
         const segmentEarningsMap: Record<string, number> = {
-            'feed': 0, // Maps to 'Products (Fixed)'
-            'arena': 0, // Maps to 'Auction'
-            'remarket': 0 // Maps to 'Second Hand'
+            'products': 0, 
+            'live-auction': 0, 
+            'wholesale': 0,
+            'second-hand': 0,
+            'group-offers': 0
         };
 
         // Initialize last 30 days in dailySalesMap
@@ -121,8 +123,9 @@ export default function AnalyticsTab() {
                      if (pSegment && segmentEarningsMap[pSegment] !== undefined) {
                          segmentEarningsMap[pSegment] += itemRevenue;
                      } else {
-                         // Default to feed if missing
-                         segmentEarningsMap['feed'] += itemRevenue;
+                         // Fallback or dynamically add
+                         const fallback = pSegment || 'products';
+                         segmentEarningsMap[fallback] = (segmentEarningsMap[fallback] || 0) + itemRevenue;
                      }
                  }
              });
@@ -166,7 +169,7 @@ export default function AnalyticsTab() {
   }, [user]);
 
   // Calculate total segment earnings for percentage widths
-  const totalSegmentEarnings = Math.max(1, (segmentEarnings['feed'] || 0) + (segmentEarnings['arena'] || 0) + (segmentEarnings['remarket'] || 0));
+  const totalSegmentEarnings = Math.max(1, (Object.values(segmentEarnings) as number[]).reduce((a, b) => a + b, 0));
 
   return (
     <div className="space-y-4">
@@ -240,24 +243,24 @@ export default function AnalyticsTab() {
 
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
         <h3 className="text-sm font-bold text-white mb-4">Earnings by Segment</h3>
-        <div className="space-y-3">
-           <div className="flex items-center justify-between">
-             <span className="text-xs text-emerald-400 font-bold">Products (Fixed)</span>
-             <span className="text-sm text-white font-bold">NPR {segmentEarnings['feed']?.toLocaleString() || 0}</span>
-           </div>
-           <div className="w-full bg-slate-800 rounded-full h-1.5"><div className="bg-emerald-500 h-1.5 rounded-full" style={{width: `${((segmentEarnings['feed'] || 0) / totalSegmentEarnings) * 100}%`}}></div></div>
-           
-           <div className="flex items-center justify-between pt-2">
-             <span className="text-xs text-rose-500 font-bold">Auction</span>
-             <span className="text-sm text-white font-bold">NPR {segmentEarnings['arena']?.toLocaleString() || 0}</span>
-           </div>
-           <div className="w-full bg-slate-800 rounded-full h-1.5"><div className="bg-rose-500 h-1.5 rounded-full" style={{width: `${((segmentEarnings['arena'] || 0) / totalSegmentEarnings) * 100}%`}}></div></div>
+        <div className="space-y-4">
+          {Object.keys(segmentEarnings).map((segKey) => {
+             const earnings = segmentEarnings[segKey] || 0;
+             const valPercentage = totalSegmentEarnings > 0 ? (earnings / totalSegmentEarnings) * 100 : 0;
+             if (earnings === 0 && !['products', 'live-auction'].includes(segKey)) return null;
 
-           <div className="flex items-center justify-between pt-2">
-             <span className="text-xs text-amber-500 font-bold">Second Hand</span>
-             <span className="text-sm text-white font-bold">NPR {segmentEarnings['remarket']?.toLocaleString() || 0}</span>
-           </div>
-           <div className="w-full bg-slate-800 rounded-full h-1.5"><div className="bg-amber-500 h-1.5 rounded-full" style={{width: `${((segmentEarnings['remarket'] || 0) / totalSegmentEarnings) * 100}%`}}></div></div>
+             return (
+               <div key={segKey} className="space-y-1.5">
+                 <div className="flex items-center justify-between">
+                   <span className="text-xs text-slate-300 font-bold capitalize">{segKey.replace('-', ' ')}</span>
+                   <span className="text-sm text-white font-bold">NPR {earnings.toLocaleString()}</span>
+                 </div>
+                 <div className="w-full bg-slate-800 rounded-full h-1.5">
+                   <div className="bg-emerald-500 h-1.5 rounded-full" style={{width: `${valPercentage}%`}}></div>
+                 </div>
+               </div>
+             );
+          })}
         </div>
       </div>
     </div>

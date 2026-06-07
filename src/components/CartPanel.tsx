@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingCart, X, Plus, Minus, Trash2, ArrowRight, PlayCircle } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useDomains } from '../contexts/DomainContext';
 import { db } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -13,7 +14,36 @@ interface CartPanelProps {
 
 export default function CartPanel({ isOpen, onClose }: CartPanelProps) {
   const { cart, updateQuantity, removeItem, clearCart } = useCart();
-  const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const { commissions } = useDomains();
+
+  const getDynamicPrice = (item: any) => {
+    if (item.basePrice === undefined) return item.price; // fallback if no base price
+    
+    let rate = commissions[item.segment || ''] || 0;
+    if (item.category) {
+       const catId = item.category.toLowerCase().replace(/[^a-z0-9]/g, '-');
+       if (commissions[`cat_${catId}`] !== undefined) rate = commissions[`cat_${catId}`];
+       if (item.subcategory && commissions[`subcat_${catId}_${item.subcategory}`] !== undefined) {
+          rate = commissions[`subcat_${catId}_${item.subcategory}`];
+       }
+    }
+    return parseFloat((item.basePrice * (1 + (rate / 100))).toFixed(2));
+  };
+
+  const calcItemTotal = (item: any) => {
+    let discount = 0;
+    if (item.bulkDiscountTiers) {
+      for (const [tierQty, tierPct] of Object.entries(item.bulkDiscountTiers)) {
+         if (item.quantity >= parseInt(tierQty)) {
+             discount = Math.max(discount, typeof tierPct === 'number' ? tierPct : 0);
+         }
+      }
+    }
+    const dynamicPrice = getDynamicPrice(item);
+    return dynamicPrice * item.quantity * ((100 - discount) / 100);
+  };
+  
+  const totalAmount = cart.reduce((sum, item) => sum + calcItemTotal(item), 0).toFixed(2);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useAuth();
@@ -36,13 +66,30 @@ export default function CartPanel({ isOpen, onClose }: CartPanelProps) {
        });
 
        for (const [sellerId, items] of Object.entries(itemsBySeller)) {
-          const orderTotal = items.reduce((sum, it) => sum + (it.price * it.quantity), 0);
+          const updatedItems = items.map(item => {
+             const rate = (() => {
+               let r = commissions[item.segment || ''] || 0;
+               if (item.category) {
+                  const catId = item.category.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                  if (commissions[`cat_${catId}`] !== undefined) r = commissions[`cat_${catId}`];
+                  if (item.subcategory && commissions[`subcat_${catId}_${item.subcategory}`] !== undefined) r = commissions[`subcat_${catId}_${item.subcategory}`];
+               }
+               return r;
+             })();
+             return {
+                ...item,
+                price: getDynamicPrice(item),
+                commissionRate: rate,
+             };
+          });
+
+          const orderTotal = updatedItems.reduce((sum, it) => sum + calcItemTotal(it), 0);
           
           // Create the order
           const orderRef = await addDoc(collection(db, 'orders'), {
              buyerId: user.uid,
              sellerId: sellerId,
-             items: items,
+             items: updatedItems,
              totalAmount: orderTotal,
              status: 'pending',
              timestamp: serverTimestamp(),
@@ -143,7 +190,7 @@ export default function CartPanel({ isOpen, onClose }: CartPanelProps) {
                         <p className="text-slate-400 text-[10px] mt-0.5">Size: {item.size}</p>
                       </div>
                       <div className="flex justify-between items-center gap-2 mt-1">
-                        <span className="text-emerald-400 font-black text-sm truncate">NPR {item.price}</span>
+                        <span className="text-emerald-400 font-black text-sm truncate">NPR {calcItemTotal(item).toFixed(2)}</span>
                         <div className="flex items-center gap-1.5 bg-slate-900 rounded-md border border-slate-700 px-1.5 py-0.5 shrink-0">
                           <button onClick={() => updateQuantity(item.cartItemId, -1)} className="p-0.5 hover:text-white text-slate-400 transition cursor-pointer">
                             <Minus className="w-3 h-3" />

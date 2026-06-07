@@ -127,6 +127,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /group_deals/{dealId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /group_members/{memberId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
     match /conversations/{conversationId} {
       allow read: if isSignedIn() && request.auth.uid in existing().participants;
       allow create: if isEmailVerified() && isValidConversation(incoming()) && isValidId(conversationId);
@@ -170,6 +180,16 @@ service cloud.firestore {
       allow get: if isSignedIn() && (isAdmin() || isOwner(userId));
       allow list: if isAdmin();
       allow write: if isAdmin() || (isOwner(userId) && incoming().role == existing().role);
+    }
+
+    match /commission_audits/{auditId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /platform_configs/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

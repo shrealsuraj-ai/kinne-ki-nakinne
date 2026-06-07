@@ -4,9 +4,12 @@ import { X, UserPlus, UserCheck, Package, Star, ShieldCheck } from 'lucide-react
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { useDomains } from '../contexts/DomainContext';
+import { transformProductPricing } from '../lib/pricing';
 
 export default function SellerProfileModal({ isOpen, onClose, sellerId, sellerName, onViewProfile }: { isOpen: boolean, onClose: () => void, sellerId: string, sellerName: string, onViewProfile?: () => void }) {
   const { user } = useAuth();
+  const { commissions } = useDomains();
   const [isFollowing, setIsFollowing] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +22,7 @@ export default function SellerProfileModal({ isOpen, onClose, sellerId, sellerNa
       try {
         const q = query(collection(db, 'products'), where('sellerId', '==', sellerId));
         const snap = await getDocs(q);
-        const fetchedProducts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const fetchedProducts = snap.docs.map(doc => transformProductPricing({ id: doc.id, ...doc.data() }, commissions));
         setProducts(fetchedProducts);
       } catch (err) {
         console.error("Failed to fetch seller products", err);
@@ -28,7 +31,7 @@ export default function SellerProfileModal({ isOpen, onClose, sellerId, sellerNa
     };
 
     fetchSellerData();
-  }, [isOpen, sellerId]);
+  }, [isOpen, sellerId, commissions]);
 
   if (!isOpen) return null;
 

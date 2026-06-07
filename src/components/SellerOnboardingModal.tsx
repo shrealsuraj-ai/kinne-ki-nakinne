@@ -4,6 +4,7 @@ import { X, ChevronRight, ChevronLeft, CheckCircle2, UploadCloud, Store, ShieldC
 import { db } from '../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { DOMAINS } from '../lib/domains';
 
 interface SellerOnboardingModalProps {
   isOpen: boolean;
@@ -23,7 +24,8 @@ export default function SellerOnboardingModal({ isOpen, onClose, onSuccess }: Se
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
 
-  const [categories, setCategories] = useState('');
+  const [selectedDomain, setSelectedDomain] = useState('');
+  const [selectedSegments, setSelectedSegments] = useState<string[]>([]);
   const [businessDescription, setBusinessDescription] = useState('');
   const [pickupAddress, setPickupAddress] = useState('');
   const [returnAddress, setReturnAddress] = useState('');
@@ -58,7 +60,8 @@ export default function SellerOnboardingModal({ isOpen, onClose, onSuccess }: Se
         businessType,
         email,
         phone,
-        categories,
+        domain: selectedDomain,
+        segments: selectedSegments,
         businessDescription,
         pickupAddress,
         returnAddress,
@@ -169,9 +172,53 @@ export default function SellerOnboardingModal({ isOpen, onClose, onSuccess }: Se
                          </div>
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Product Categories (comma separated)</label>
-                        <input required type="text" value={categories} onChange={e => setCategories(e.target.value)} placeholder="Electronics, Fashion..." className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 transition" />
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Primary Business Domain</label>
+                        <select 
+                          required 
+                          value={selectedDomain} 
+                          onChange={e => {
+                            setSelectedDomain(e.target.value);
+                            setSelectedSegments([]);
+                          }} 
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 transition appearance-none"
+                        >
+                          <option value="" disabled>Select a domain...</option>
+                          {DOMAINS.map(d => (
+                            <option key={d.id} value={d.id}>{d.name} ({d.label})</option>
+                          ))}
+                        </select>
                       </div>
+                      
+                      {selectedDomain && (
+                        <div>
+                          <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Store Segments</label>
+                          <div className="flex gap-2 flex-wrap">
+                            {DOMAINS.find(d => d.id === selectedDomain)?.segments.map(seg => (
+                              <button
+                                key={seg.id}
+                                type="button"
+                                onClick={() => {
+                                  if (selectedSegments.includes(seg.id)) {
+                                    setSelectedSegments(selectedSegments.filter(s => s !== seg.id));
+                                  } else {
+                                    setSelectedSegments([...selectedSegments, seg.id]);
+                                  }
+                                }}
+                                className={`px-4 py-2 rounded-xl text-sm font-bold border transition ${
+                                  selectedSegments.includes(seg.id) 
+                                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' 
+                                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500'
+                                }`}
+                              >
+                                {seg.label}
+                              </button>
+                            ))}
+                          </div>
+                          {selectedSegments.length === 0 && (
+                             <p className="text-[10px] text-rose-400 mt-1">Please select at least one segment.</p>
+                          )}
+                        </div>
+                      )}
                       <div>
                         <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Business Description</label>
                         <textarea required rows={3} value={businessDescription} onChange={e => setBusinessDescription(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 transition resize-none"></textarea>
@@ -270,7 +317,8 @@ export default function SellerOnboardingModal({ isOpen, onClose, onSuccess }: Se
                           <div className="flex justify-between"><span className="text-slate-400">Store Name</span> <span className="text-white font-medium">{storeName}</span></div>
                           <div className="flex justify-between"><span className="text-slate-400">Business Type</span> <span className="text-white font-medium">{businessType}</span></div>
                           <div className="flex justify-between"><span className="text-slate-400">Contact</span> <span className="text-white font-medium">{phone}</span></div>
-                          <div className="flex justify-between"><span className="text-slate-400">Categories</span> <span className="text-white font-medium">{categories || 'Not specified'}</span></div>
+                          <div className="flex justify-between items-start"><span className="text-slate-400">Domain</span> <span className="text-white font-medium text-right">{DOMAINS.find(d => d.id === selectedDomain)?.name || 'Not specified'}</span></div>
+                          <div className="flex justify-between items-start"><span className="text-slate-400">Segments</span> <span className="text-white font-medium text-right max-w-[200px]">{selectedSegments.map(s => DOMAINS.find(d => d.id === selectedDomain)?.segments.find(seg => seg.id === s)?.label).join(', ') || 'Not specified'}</span></div>
                           <div className="flex justify-between"><span className="text-slate-400">Settlement</span> <span className="text-white font-medium">{paymentMethod}</span></div>
                        </div>
                     </div>

@@ -5,6 +5,9 @@ import { db } from '../lib/firebase';
 import { ShieldCheck, Edit3, Save, X, Truck, CreditCard, Building2, Store, Video, Link as LinkIcon, Users, Grid } from 'lucide-react';
 import { motion } from 'motion/react';
 import SellerRating from './SellerRating';
+import { DOMAINS } from '../lib/domains';
+import { useDomains } from '../contexts/DomainContext';
+import { transformProductPricing } from '../lib/pricing';
 
 interface SellerProfileTabProps {
   user?: AuthUser | null;
@@ -13,6 +16,7 @@ interface SellerProfileTabProps {
 }
 
 export default function SellerProfileTab({ user, sellerId, onProductClick }: SellerProfileTabProps) {
+  const { commissions } = useDomains();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,6 +26,8 @@ export default function SellerProfileTab({ user, sellerId, onProductClick }: Sel
     storeName: '',
     businessType: '',
     phone: '',
+    domain: '',
+    segments: [] as string[],
     pickupAddress: '',
     returnAddress: '',
     bankName: '',
@@ -29,7 +35,8 @@ export default function SellerProfileTab({ user, sellerId, onProductClick }: Sel
     deliveryOptions: '',
     paymentMethod: '',
     bio: '',
-    website: ''
+    website: '',
+    faqPairs: [] as {id: string, question: string, answer: string}[]
   });
 
   const [isVerified, setIsVerified] = useState(false);
@@ -54,6 +61,8 @@ export default function SellerProfileTab({ user, sellerId, onProductClick }: Sel
             storeName: fetched.storeName || '',
             businessType: fetched.businessType || '',
             phone: fetched.phone || '',
+            domain: fetched.domain || '',
+            segments: fetched.segments || [],
             pickupAddress: fetched.pickupAddress || '',
             returnAddress: fetched.returnAddress || '',
             bankName: fetched.bankName || '',
@@ -61,7 +70,8 @@ export default function SellerProfileTab({ user, sellerId, onProductClick }: Sel
             deliveryOptions: fetched.deliveryOptions || '',
             paymentMethod: fetched.paymentMethod || '',
             bio: fetched.bio || '',
-            website: fetched.website || ''
+            website: fetched.website || '',
+            faqPairs: fetched.faqPairs || []
           });
           setIsVerified(fetched.isVerified || false);
         }
@@ -69,7 +79,7 @@ export default function SellerProfileTab({ user, sellerId, onProductClick }: Sel
         const q = query(collection(db, 'products'), where('sellerId', '==', targetId));
         const productsSnap = await getDocs(q);
         if (active) {
-          const fetchedProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          const fetchedProducts = productsSnap.docs.map(doc => transformProductPricing({ id: doc.id, ...doc.data() }, commissions));
           // Sort by creation date if available (simple sort fallback)
           fetchedProducts.sort((a: any, b: any) => {
              const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
@@ -183,6 +193,60 @@ export default function SellerProfileTab({ user, sellerId, onProductClick }: Sel
            <textarea required name="returnAddress" value={data.returnAddress} onChange={handleChange} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2.5 px-4 text-white text-sm focus:border-emerald-500 resize-none" rows={2} />
         </div>
 
+        <div className="h-px bg-slate-800 my-4" />
+
+        <h4 className="text-sm font-bold text-emerald-400 mb-2">Automated Wholesale FAQs</h4>
+        <div className="space-y-3">
+           {data.faqPairs.map((pair, index) => (
+             <div key={pair.id} className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 relative">
+               <button 
+                 type="button"
+                 onClick={() => {
+                    const newPairs = [...data.faqPairs];
+                    newPairs.splice(index, 1);
+                    setData(d => ({ ...d, faqPairs: newPairs }));
+                 }}
+                 className="absolute top-2 right-2 text-rose-400 p-1 hover:bg-rose-500/20 rounded z-10"
+               >
+                 <X className="w-3 h-3" />
+               </button>
+               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-1 block">Trigger Question</label>
+               <input 
+                 required 
+                 type="text" 
+                 value={pair.question} 
+                 onChange={e => {
+                    const newPairs = [...data.faqPairs];
+                    newPairs[index].question = e.target.value;
+                    setData(d => ({ ...d, faqPairs: newPairs }));
+                 }}
+                 placeholder="e.g., What is your MOQ?" 
+                 className="w-full bg-slate-800 border border-slate-700 rounded-lg py-1.5 px-3 mb-2 text-white text-xs focus:border-emerald-500" 
+               />
+               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-1 block">Quick Reply Answer</label>
+               <textarea 
+                 required 
+                 value={pair.answer} 
+                 onChange={e => {
+                    const newPairs = [...data.faqPairs];
+                    newPairs[index].answer = e.target.value;
+                    setData(d => ({ ...d, faqPairs: newPairs }));
+                 }}
+                 placeholder="e.g., Our MOQ is 50 units." 
+                 className="w-full bg-slate-800 border border-slate-700 rounded-lg py-1.5 px-3 text-white text-xs focus:border-emerald-500 resize-none" 
+                 rows={2} 
+               />
+             </div>
+           ))}
+           <button 
+             type="button" 
+             onClick={() => setData(d => ({ ...d, faqPairs: [...d.faqPairs, { id: Date.now().toString(), question: '', answer: '' }] }))}
+             className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 rounded-xl text-xs transition border border-slate-700 border-dashed"
+           >
+             + Add Q&A Pair
+           </button>
+        </div>
+
         <button 
            type="submit"
            disabled={saving}
@@ -232,7 +296,27 @@ export default function SellerProfileTab({ user, sellerId, onProductClick }: Sel
       {/* Bio and Info */}
       <div className="px-4">
         <h2 className="text-sm font-bold text-white mb-0.5">{data.storeName || 'My Store'}</h2>
-        <p className="text-xs text-slate-400 mb-1">{data.businessType || 'Seller'}</p>
+        <div className="flex flex-col gap-1 mb-2">
+          <p className="text-xs text-slate-400">{data.businessType || 'Seller'}</p>
+          {(data.domain || (data.segments && data.segments.length > 0)) && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {data.domain && (
+                <span className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded text-[10px] font-bold">
+                  {DOMAINS.find(d => d.id === data.domain)?.name || data.domain}
+                </span>
+              )}
+              {data.segments && data.segments.map(seg => {
+                const domainData = DOMAINS.find(d => d.id === data.domain);
+                const segmentLabel = domainData?.segments.find(s => s.id === seg)?.label || seg;
+                return (
+                  <span key={seg} className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded text-[10px] font-bold">
+                    {segmentLabel}
+                  </span>
+                )
+              })}
+            </div>
+          )}
+        </div>
         {data.bio && <p className="text-sm text-slate-200 mb-2 whitespace-pre-wrap">{data.bio}</p>}
         {data.website && (
           <a href={data.website} target="_blank" rel="noreferrer" className="text-blue-400 text-sm font-medium flex items-center gap-1 mb-2">

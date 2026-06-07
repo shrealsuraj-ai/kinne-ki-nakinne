@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, MessageCircle, Share2, ShoppingBag, ShoppingCart, Plus, X, ChevronRight, ChevronLeft, LogIn, User as UserIcon, LogOut, Home, Search, Inbox, BadgeCheck, Volume2, VolumeX, Star, Undo2, Play, Pause, Maximize, Minimize, Info } from 'lucide-react';
+import { Heart, MessageCircle, Share2, ShoppingBag, ShoppingCart, Plus, X, ChevronRight, ChevronLeft, LogIn, User as UserIcon, LogOut, Home, Search, Inbox, BadgeCheck, Volume2, VolumeX, Star, Undo2, Play, Pause, Maximize, Minimize, Info, Calendar, CreditCard } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
-import { collection, query, orderBy, onSnapshot, setDoc, doc, addDoc, serverTimestamp, where, limit, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, setDoc, doc, addDoc, serverTimestamp, where, limit, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import AuthModal from './components/AuthModal';
 import ProfileDashboard from './components/ProfileDashboard';
 import DomainSelectorModal from './components/DomainSelectorModal';
-import { DOMAINS } from './lib/domains';
+import { DOMAINS, getTransactionButtonText } from './lib/domains';
+import { DEFAULT_GROUP_PURCHASE_PRODUCTS } from './lib/groupData';
+import { DEFAULT_SERVICES } from './lib/serviceData';
 
 import ProductUploadModal from './components/ProductUploadModal';
 import InboxPanel from './components/chat/InboxPanel';
@@ -20,6 +22,8 @@ import SellerProfileModal from './components/SellerProfileModal';
 import BuyMeter from './components/BuyMeter';
 import BidTimerMeter from './components/BidTimerMeter';
 import LiveBroadcastFeed from './components/LiveBroadcastFeed';
+import { useDomains } from './contexts/DomainContext';
+import { transformProductPricing } from './lib/pricing';
 
 
 const VideoPlayer = ({ src, isMuted, setIsMuted }: { src: string, isMuted: boolean, setIsMuted: (muted: boolean) => void }) => {
@@ -254,6 +258,27 @@ const MediaSlideshow = ({ urls }: { urls: string[] }) => {
 
 const DEFAULT_WEARABLE_PRODUCTS = [
   {
+    id: "default_wholesale_1",
+    sellerId: "seller_doko",
+    seller: "DokoFashion",
+    title: "Bulk Nepali Dhaka Fabric Rolls",
+    price: 1500,
+    segment: "wholesale",
+    type: "image",
+    url: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?auto=format&fit=crop&w=600&q=80",
+    description: "Premium quality woven Nepali Dhaka fabric rolls for bulk clothing manufacturing.",
+    isVerified: true,
+    reviewCount: 30,
+    ratingSum: 145,
+    keyFeatures: ["Wholesale pricing", "Pure cotton threads", "Authentic patterns"],
+    specifications: { "Roll Length": "100 meters", "Fabric": "Cotton" },
+    category: "Raw Material",
+    minOrderQuantity: 10,
+    bulkDiscountTiers: { "10": 5, "50": 10, "100": 15 },
+    durationRequired: false,
+    depositRequired: false
+  },
+  {
     id: "default_clothes_1",
     sellerId: "seller_doko",
     seller: "DokoFashion",
@@ -407,6 +432,8 @@ export default function App() {
   const [isInboxOpen, setIsInboxOpen] = useState(false);
   const [isReviewsOpen, setIsReviewsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string>('M');
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
+  const [sellerFaqs, setSellerFaqs] = useState<any[]>([]);
 
   const cartIconRef = useRef<HTMLButtonElement>(null);
   const addToCartButtonRef = useRef<HTMLButtonElement>(null);
@@ -470,7 +497,7 @@ export default function App() {
        setIsCartOpen(true);
     }
 
-    addToCart({...currentItem, selectedSize: selectedOption}, currentItem.id, Date.now());
+    addToCart({...currentItem, selectedSize: selectedOption, quantity: activeSegment === 'wholesale' ? selectedQuantity : 1}, currentItem.id, Date.now());
     setIsCheckoutOpen(false);
   };
   const [activeChat, setActiveChat] = useState<{ id: string, otherUser: { id: string, name: string, avatar?: string } } | null>(null);
@@ -479,7 +506,7 @@ export default function App() {
   
   const [activeDomainId, setActiveDomainId] = useState<string>('kinne');
   const [isDomainSelectorOpen, setIsDomainSelectorOpen] = useState(false);
-  const [activeSegment, setActiveSegment] = useState<string>('feed');
+  const [activeSegment, setActiveSegment] = useState<string>(DOMAINS[0].segments[0].id);
   const [isMuted, setIsMuted] = useState(true);
 
   useEffect(() => {
@@ -514,14 +541,53 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const displayedVideos = [
+  const { domains, commissions } = useDomains();
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSearchCategory, setSelectedSearchCategory] = useState<string>('');
+  const [selectedSearchSubcategory, setSelectedSearchSubcategory] = useState<string>('');
+  
+  useEffect(() => {
+    setActiveCategory(null);
+    setSelectedSearchCategory('');
+    setSelectedSearchSubcategory('');
+    setSearchQuery('');
+  }, [activeSegment]);
+
+  const activeCategories = useMemo(() => {
+    return DOMAINS.find(d => d.id === activeDomainId)?.segments.find(s => s.id === activeSegment)?.categories || [];
+  }, [activeDomainId, activeSegment, DOMAINS]);
+
+  const displayedVideos = ([
     ...videos,
-    ...DEFAULT_WEARABLE_PRODUCTS
-  ].filter(v => (v.segment || 'feed') === activeSegment) || [];
+    ...DEFAULT_WEARABLE_PRODUCTS,
+    ...DEFAULT_GROUP_PURCHASE_PRODUCTS,
+    ...DEFAULT_SERVICES
+  ].filter(v => 
+    (v.segment || DOMAINS[0].segments[0].id) === activeSegment && 
+    (!activeCategory || v.category === activeCategory) &&
+    (!searchQuery || (v.title && v.title.toLowerCase().includes(searchQuery.toLowerCase())) || (v.tags && v.tags.some((t: string) => t.toLowerCase().includes(searchQuery.toLowerCase())))) &&
+    (!selectedSearchCategory || v.category === selectedSearchCategory) &&
+    (!selectedSearchSubcategory || v.subcategory === selectedSearchSubcategory)
+  ) || [])
+  .map(v => transformProductPricing(v, commissions));
   
   // Prevent out of bounds
   const currentItem = displayedVideos.length > 0 ? displayedVideos[currentIndex % displayedVideos.length] : null;
   const isCurrentUserSeller = user && currentItem?.sellerId === user.uid;
+
+  useEffect(() => {
+    if (currentItem?.sellerId) {
+       getDoc(doc(db, 'sellers', currentItem.sellerId)).then(snap => {
+          if (snap.exists() && snap.data().faqPairs) {
+             setSellerFaqs(snap.data().faqPairs);
+          } else {
+             setSellerFaqs([]);
+          }
+       }).catch(console.error);
+    }
+  }, [currentItem?.sellerId]);
 
   const [currentHighestBid, setCurrentHighestBid] = useState(0);
   const [bidAmount, setBidAmount] = useState(0);
@@ -604,7 +670,7 @@ export default function App() {
     }
   };
 
-  const startChat = async () => {
+  const startChat = async (initialMessageText?: string) => {
     if (!user) {
       setIsAuthOpen(true);
       return;
@@ -638,7 +704,7 @@ export default function App() {
       // Add a product message immediately
       await addDoc(collection(db, 'conversations', conversationId, 'messages'), {
          senderId: user.uid,
-         text: "Hi! I'm interested in this item.",
+         text: initialMessageText || "Hi! I'm interested in this item.",
          messageType: 'product',
          productData: {
            id: currentItem.id,
@@ -665,11 +731,11 @@ export default function App() {
     setIsProfileDashboardOpen(false);
     
     // Switch to the correct segment
-    const segment = product.segment || 'feed';
+    const segment = product.segment || DOMAINS[0].segments[0].id;
     setActiveSegment(segment);
     
     // Find index of this product in the segment
-    const segmentVideos = videos.filter(v => (v.segment || 'feed') === segment);
+    const segmentVideos = videos.filter(v => (v.segment || DOMAINS[0].segments[0].id) === segment);
     const index = segmentVideos.findIndex(v => v.id === product.id);
     if (index !== -1) {
       setCurrentIndex(index);
@@ -737,6 +803,9 @@ export default function App() {
           </div>
           
           <div className="flex gap-2 items-center pointer-events-auto">
+            <button onClick={() => setIsSearchOpen(!isSearchOpen)} className={`p-1.5 rounded-full backdrop-blur-md border hover:bg-white/20 transition relative ${isSearchOpen ? 'bg-white/20 border-white/30' : 'bg-black/40 border-white/10'}`}>
+               <Search className="w-4 h-4 text-white" />
+            </button>
             <button ref={cartIconRef} onClick={() => setIsCartOpen(true)} className="bg-black/40 p-1.5 rounded-full backdrop-blur-md border border-white/10 hover:bg-white/20 transition relative">
                <ShoppingCart className="w-4 h-4 text-white" />
                {cart.length > 0 && <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span>}
@@ -749,6 +818,78 @@ export default function App() {
             )}
           </div>
         </div>
+
+        {activeCategories.length > 0 && (
+          <div className="absolute top-[70px] w-full z-20 px-4 pointer-events-none">
+            <div className="flex gap-2 items-center overflow-x-auto hide-scrollbar pointer-events-auto pb-2">
+              <button
+                 onClick={() => { setActiveCategory(null); setCurrentIndex(0); }}
+                 className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase backdrop-blur-md border border-white/10 whitespace-nowrap transition-all ${!activeCategory ? 'bg-white text-black' : 'bg-black/40 text-white hover:bg-white/20'}`}
+              >
+                All
+              </button>
+              {activeCategories.map((cat: any) => (
+                <button
+                   key={cat.id}
+                   onClick={() => { setActiveCategory(cat.label); setCurrentIndex(0); }}
+                   className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase backdrop-blur-md border border-white/10 whitespace-nowrap transition-all ${activeCategory === cat.label ? 'bg-white text-black' : 'bg-black/40 text-slate-300 hover:bg-white/20'}`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isSearchOpen && (
+          <div className="absolute top-[105px] w-full z-30 px-4 pointer-events-none">
+            <motion.div 
+               initial={{ opacity: 0, y: -10 }}
+               animate={{ opacity: 1, y: 0 }}
+               className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex flex-col gap-3 pointer-events-auto shadow-2xl"
+            >
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input 
+                   type="text" 
+                   placeholder="Search products by name..." 
+                   value={searchQuery}
+                   onChange={(e) => { setSearchQuery(e.target.value); setCurrentIndex(0); }}
+                   className="w-full bg-white/10 border border-white/20 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 placeholder-slate-400 font-medium"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                 <select
+                   value={selectedSearchCategory}
+                   onChange={(e) => {
+                     setSelectedSearchCategory(e.target.value);
+                     setSelectedSearchSubcategory('');
+                     setCurrentIndex(0);
+                   }}
+                   className="bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none outline-none font-medium"
+                 >
+                   <option value="" className="bg-slate-900">All Categories</option>
+                   {activeCategories.map((cat: any) => (
+                     <option key={cat.id} value={cat.label} className="bg-slate-900">{cat.label}</option>
+                   ))}
+                 </select>
+                 
+                 <select
+                   value={selectedSearchSubcategory}
+                   onChange={(e) => { setSelectedSearchSubcategory(e.target.value); setCurrentIndex(0); }}
+                   className="bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none outline-none font-medium disabled:opacity-30"
+                   disabled={!selectedSearchCategory}
+                 >
+                   <option value="" className="bg-slate-900">All Subcategories</option>
+                   {/* Find subcategories for selected category */}
+                   {activeCategories.find((c: any) => c.label === selectedSearchCategory)?.subcategories?.map((sub: string) => (
+                     <option key={sub} value={sub} className="bg-slate-900">{sub}</option>
+                   ))}
+                 </select>
+              </div>
+            </motion.div>
+          </div>
+        )}
 
         {/* Video Feed Area */}
         <div className="relative flex-1 w-full bg-black mb-16 flex items-center justify-center">
@@ -801,7 +942,7 @@ export default function App() {
                 <div className="flex-1 pr-12">
                   <h3 className="text-white font-extrabold text-sm tracking-wide mb-1 flex items-center gap-2 drop-shadow-md">
                     @{currentItem.seller}
-                    {(activeSegment === 'feed' || activeSegment === 'remarket' || ['clothes', 'shoes', 'accessories', 'jewelry'].includes(activeSegment)) && currentItem.isVerified && (
+                    {(['products', 'remarket', 'clothes', 'shoes', 'accessories'].includes(activeSegment)) && currentItem.isVerified && (
                       <span className="flex items-center gap-1 text-blue-400">
                         <BadgeCheck className="w-4 h-4 fill-blue-500 text-white" />
                       </span>
@@ -854,6 +995,7 @@ export default function App() {
                     alert("Auction has not started yet.");
                     return;
                 }
+                setSelectedQuantity(currentItem.minOrderQuantity || 1);
                 setIsCheckoutOpen(true);
               }}
               className={`rounded-full ${activeSegment === 'arena' ? 'bg-gradient-to-tr from-rose-500 to-red-600 shadow-rose-500/40' : 'bg-gradient-to-tr from-emerald-500 to-teal-500 shadow-emerald-500/40'} flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-xl block border-2 border-white disabled:opacity-50 disabled:hover:scale-100`}
@@ -862,7 +1004,7 @@ export default function App() {
             >
               <ShoppingCart className="w-5 h-5 text-white" />
             </button>
-            <span className={`text-[10px] font-black ${activeSegment === 'arena' ? 'text-rose-400' : 'text-emerald-400'} drop-shadow-lg`}>{activeSegment === 'arena' ? 'BID NOW' : (DOMAINS.find(d => d.id === activeDomainId)?.primaryAction || 'KINNE!')}</span>
+            <span className={`text-[10px] font-black ${activeSegment === 'arena' ? 'text-rose-400' : 'text-emerald-400'} drop-shadow-lg text-center leading-tight mt-1 max-w-[60px]`}>{activeSegment === 'arena' ? 'BID NOW' : getTransactionButtonText(currentItem?.transactionType, DOMAINS.find(d => d.id === activeDomainId)?.primaryAction)}</span>
           </div>
 
           <div className="flex flex-col items-center gap-1">
@@ -904,6 +1046,8 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   {activeSegment === 'arena' ? (
                     <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-rose-500 text-sm drop-shadow-sm">Current Bid: NPR {currentHighestBid > 0 ? currentHighestBid : currentItem.price}</span>
+                  ) : activeSegment === 'group-purchase' ? (
+                    <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400 text-sm drop-shadow-sm">Target: NPR {currentItem.pricePerPersonAtMin || currentItem.price}</span>
                   ) : (
                      <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 text-sm drop-shadow-sm">NPR {currentItem.price}</span>
                   )}
@@ -917,9 +1061,22 @@ export default function App() {
                        WAITING...
                     </span>
                   )}
-                  {activeSegment === 'feed' && currentItem.isFlashSale && (
+                  {activeSegment === 'products' && currentItem.isFlashSale && (
                     <span className="bg-amber-500 px-1.5 py-0.5 rounded text-[8px] font-black text-white shadow-lg shadow-amber-500/50">
                        FLASH SALE!
+                    </span>
+                  )}
+                  {activeSegment === 'wholesale' && (
+                    <span className="bg-blue-500/20 text-blue-400 border border-blue-500/50 px-1.5 py-0.5 rounded text-[8px] font-black shadow-lg shadow-blue-500/20 group relative cursor-help">
+                       MOQ: {currentItem.minOrderQuantity || 1}
+                       <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max px-2 py-1 bg-black/90 text-white border border-slate-700 text-[10px] rounded opacity-0 group-hover:opacity-100 group-hover:-translate-y-1 transition-all pointer-events-none z-50">
+                          Order more for better rates
+                       </span>
+                    </span>
+                  )}
+                  {activeSegment === 'group-purchase' && (
+                    <span className="bg-violet-500/20 text-violet-400 border border-violet-500/50 px-1.5 py-0.5 rounded text-[8px] font-black shadow-lg shadow-violet-500/20">
+                       {currentItem.currentPledgeCount || 0}/{currentItem.minPledgeCount || 0} JOINED
                     </span>
                   )}
                 </div>
@@ -945,13 +1102,14 @@ export default function App() {
                 } else if (activeSegment === 'arena' && !isCurrentUserSeller && (!currentItem || !currentItem.auctionStarted)) {
                     alert("Auction has not started yet. Please wait for the seller to start it.");
                 } else {
+                    setSelectedQuantity(currentItem.minOrderQuantity || 1);
                     setIsCheckoutOpen(true);
                 }
               }}
               className={`${activeSegment === 'arena' ? 'bg-gradient-to-r from-rose-500 to-red-600 shadow-rose-500/30' : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30'} text-white px-5 py-2 rounded-xl text-xs font-black tracking-wide shadow-lg hover:opacity-90 active:scale-95 transition-all shrink-0 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed`}
               disabled={activeSegment === 'arena' && !isCurrentUserSeller && (!currentItem || !currentItem.auctionStarted)}
             >
-              {activeSegment === 'arena' ? (isCurrentUserSeller ? (currentItem?.auctionStarted ? 'AUCTION LIVE' : 'START AUCTION') : 'PLACE BID') : (DOMAINS.find(d => d.id === activeDomainId)?.primaryAction || 'KINNE!')}
+              {activeSegment === 'arena' ? (isCurrentUserSeller ? (currentItem?.auctionStarted ? 'AUCTION LIVE' : 'START AUCTION') : 'PLACE BID') : getTransactionButtonText(currentItem?.transactionType, DOMAINS.find(d => d.id === activeDomainId)?.primaryAction)}
             </button>
           </div>
         </div>
@@ -1008,10 +1166,33 @@ export default function App() {
                     ) : (
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-slate-400 text-xs">Price</span>
-                        <span className="font-bold text-xl text-white">NPR {currentItem.price}</span>
+                        <div className="flex flex-col items-end">
+                          <span className="font-bold text-xl text-white">NPR {currentItem.price}</span>
+                          {activeSegment === 'wholesale' && (
+                            <span className="text-blue-400 text-[10px] font-bold">MOQ: {currentItem.minOrderQuantity || 1} Units</span>
+                          )}
+                        </div>
                       </div>
                     )}
-                     {(activeSegment === 'remarket' || ['clothes', 'shoes', 'accessories', 'jewelry'].includes(activeSegment)) && (
+                    {currentItem.durationRequired && (
+                      <div className="mt-4 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-1 opacity-10"><Calendar className="w-16 h-16 text-indigo-400" /></div>
+                        <h4 className="text-indigo-400 font-bold text-sm flex items-center gap-2 mb-1">
+                          📅 Duration Required
+                        </h4>
+                        <p className="text-xs text-indigo-200/70 relative z-10">Please select dates/duration before proceeding.</p>
+                      </div>
+                    )}
+                    {currentItem.depositRequired && (
+                      <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-1 opacity-10"><CreditCard className="w-16 h-16 text-amber-400" /></div>
+                        <h4 className="text-amber-400 font-bold text-sm flex items-center gap-2 mb-1">
+                          🛡️ Deposit Required
+                        </h4>
+                        <p className="text-xs text-amber-200/70 relative z-10">A security hold or deposit will be applied.</p>
+                      </div>
+                    )}
+                     {(activeSegment === 'remarket' || ['clothes', 'shoes', 'accessories'].includes(activeSegment)) && (
                          <div className="flex justify-between items-center text-amber-500 text-xs font-bold mt-2 pt-2 border-t border-slate-700">
                            <span>AI Verification Score:</span>
                            <span>98% Authentic</span>
@@ -1027,6 +1208,53 @@ export default function App() {
                     </div>
                     
                     <div className="mb-4">
+                      {activeSegment === 'wholesale' && currentItem.bulkDiscountTiers && Object.keys(currentItem.bulkDiscountTiers).length > 0 && (
+                        <div className="mb-4">
+                           <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Bulk Discount Tiers</h4>
+                           <div className="grid grid-cols-2 gap-2">
+                             {Object.entries(currentItem.bulkDiscountTiers).map(([qty, discount]) => (
+                               <div key={qty} className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 flex justify-between items-center shadow-inner">
+                                 <span className="text-xs text-slate-300 font-bold">{qty}+ Units</span>
+                                 <span className="text-[10px] text-blue-400 font-black border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 rounded">{String(discount)}% OFF</span>
+                               </div>
+                             ))}
+                           </div>
+                        </div>
+                      )}
+                      
+                      {activeSegment === 'wholesale' && (
+                        <div className="mb-4 bg-slate-800/30 border border-slate-700/50 rounded-xl p-3 flex justify-between items-center">
+                           <span className="text-xs font-bold text-slate-400 uppercase">Availability</span>
+                           <span className={`text-xs font-bold ${currentItem.stock > 100 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                             {currentItem.stock > 100 ? 'In Stock' : 'Limited Stock'} ({currentItem.stock || 0} Units)
+                           </span>
+                        </div>
+                      )}
+
+                      {activeSegment === 'group-purchase' && (
+                        <div className="mb-4 bg-violet-900/20 border border-violet-500/30 rounded-xl p-4 shadow-inner">
+                            <div className="flex justify-between items-center mb-3">
+                               <span className="text-sm font-bold text-violet-400 uppercase">Group Deal Status</span>
+                               <span className="text-xs bg-violet-500/20 px-2 py-1 rounded text-violet-300 font-bold border border-violet-500/50">
+                                  {currentItem.currentPledgeCount || 0}/{currentItem.minPledgeCount || 0} JOINED
+                               </span>
+                            </div>
+                            <div className="flex gap-2 items-center mb-2">
+                               <div className="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                   <motion.div 
+                                      className="bg-violet-500 h-full" 
+                                      initial={{ width: 0 }} 
+                                      animate={{ width: `${Math.min(100, ((currentItem.currentPledgeCount || 0) / (currentItem.minPledgeCount || 1)) * 100)}%` }} 
+                                      transition={{ duration: 1, ease: "easeOut" }}
+                                   />
+                               </div>
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-2 text-center">
+                               Deal unlocks and charges apply only when target is reached.
+                            </p>
+                        </div>
+                      )}
+
                       {currentItem.keyFeatures && currentItem.keyFeatures.length > 0 && (
                          <div className="mb-4 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
                            <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Key Features</h4>
@@ -1050,7 +1278,7 @@ export default function App() {
                       )}
                       
                       <div className="flex justify-between items-center mb-3 mt-4">
-                        <h4 className="text-sm font-bold text-slate-300">{activeSegment === 'arena' ? 'Increase Bid By' : 'Options'}</h4>
+                        <h4 className="text-sm font-bold text-slate-300">{activeSegment === 'arena' ? 'Increase Bid By' : activeSegment === 'wholesale' ? 'Quantity & Summary' : 'Options'}</h4>
                         {activeSegment === 'arena' && bidHistory.length > 0 && (
                           <button 
                             onClick={() => {
@@ -1075,7 +1303,98 @@ export default function App() {
                                +Rs {amount}
                              </button>
                            ))
-                        ) : (
+                        ) : activeSegment === 'wholesale' ? (
+                          <div className="flex flex-col gap-3 w-full">
+                            <div className="flex items-center gap-4 bg-slate-800/80 border border-slate-700 p-2 rounded-xl">
+                               <button onClick={() => setSelectedQuantity(Math.max(currentItem.minOrderQuantity || 1, selectedQuantity - 1))} className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center text-white hover:bg-slate-600 transition-colors">-</button>
+                               <span className="flex-1 text-center font-bold text-xl text-white">{selectedQuantity}</span>
+                               <button onClick={() => setSelectedQuantity(selectedQuantity + 1)} className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center text-white hover:bg-slate-600 transition-colors">+</button>
+                            </div>
+                            
+                            <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-3 flex justify-between items-center">
+                               <span className="text-xs font-bold text-slate-400 uppercase">Est. Shipping (1kg/unit)</span>
+                               <span className="text-xs font-bold text-slate-300">
+                                 NPR {Math.ceil(selectedQuantity * 1) * 100}
+                               </span>
+                            </div>
+
+                            <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl flex flex-col gap-3">
+                               <div className="flex justify-between items-center">
+                                 <span className="text-sm font-bold text-slate-300">Subtotal Estimate</span>
+                                 <div className="text-right">
+                                   {(() => {
+                                     let discount = 0;
+                                     if (currentItem.bulkDiscountTiers) {
+                                         for (const [tierQty, tierPct] of Object.entries(currentItem.bulkDiscountTiers)) {
+                                            if (selectedQuantity >= parseInt(tierQty)) {
+                                                const pct = typeof tierPct === 'number' ? tierPct : 0;
+                                                discount = Math.max(discount, pct);
+                                            }
+                                         }
+                                     }
+                                     const baseTotal = currentItem.price * selectedQuantity;
+                                     const finalTotal = baseTotal * ((100 - discount) / 100);
+                                     const savings = baseTotal - finalTotal;
+
+                                     return (
+                                       <div className="flex flex-col items-end">
+                                          {discount > 0 && <span className="text-xs text-emerald-400 font-bold mb-1">{discount}% Bulk Discount</span>}
+                                          <span className="text-2xl font-black text-white">NPR {finalTotal.toFixed(2)}</span>
+                                       </div>
+                                     );
+                                   })()}
+                                 </div>
+                               </div>
+                               
+                               {(() => {
+                                   let discount = 0;
+                                   if (currentItem.bulkDiscountTiers) {
+                                       for (const [tierQty, tierPct] of Object.entries(currentItem.bulkDiscountTiers)) {
+                                          if (selectedQuantity >= parseInt(tierQty)) {
+                                              const pct = typeof tierPct === 'number' ? tierPct : 0;
+                                              discount = Math.max(discount, pct);
+                                          }
+                                       }
+                                   }
+                                   const baseTotal = currentItem.price * selectedQuantity;
+                                   const finalTotal = baseTotal * ((100 - discount) / 100);
+                                   const savings = baseTotal - finalTotal;
+
+                                   if (savings > 0) {
+                                      return (
+                                        <div className="mt-2 pt-3 border-t border-emerald-500/20 flex justify-between items-center bg-emerald-500/5 p-2 rounded px-3">
+                                          <span className="text-xs font-bold text-emerald-400">Total Bulk Savings</span>
+                                          <span className="text-sm font-black text-emerald-400">NPR {savings.toFixed(2)}</span>
+                                        </div>
+                                      );
+                                   }
+                                   return null;
+                               })()}
+                            </div>
+                            
+                            <div className="flex flex-col gap-2 mt-2">
+                               <h4 className="text-xs font-bold text-slate-400 uppercase mt-2">Ask Seller</h4>
+                               <div className="grid grid-cols-2 gap-2">
+                                  {sellerFaqs.length > 0 ? (
+                                     sellerFaqs.map(faq => (
+                                        <button key={faq.id} onClick={() => { setIsCheckoutOpen(false); startChat(faq.question); }} className="bg-slate-800 border border-slate-700 hover:bg-slate-700 flex items-center justify-center p-2 rounded-lg text-xs font-bold text-slate-300 transition-colors">
+                                           <MessageCircle className="w-3 h-3 mr-1.5 shrink-0" /> <span className="truncate">{faq.question}</span>
+                                        </button>
+                                     ))
+                                  ) : (
+                                     <>
+                                        <button onClick={() => { setIsCheckoutOpen(false); startChat(`Hi, what is the minimum order quantity (MOQ) and what are your bulk discount tiers?`); }} className="bg-slate-800 border border-slate-700 hover:bg-slate-700 flex items-center justify-center p-2 rounded-lg text-xs font-bold text-slate-300 transition-colors">
+                                           <MessageCircle className="w-3 h-3 mr-1.5" /> What is MOQ?
+                                        </button>
+                                        <button onClick={() => { setIsCheckoutOpen(false); startChat(`Hi, do you offer sample orders for this wholesale item before making a large bulk purchase?`); }} className="bg-slate-800 border border-slate-700 hover:bg-slate-700 flex items-center justify-center p-2 rounded-lg text-xs font-bold text-slate-300 transition-colors">
+                                           <MessageCircle className="w-3 h-3 mr-1.5" /> Can I get a sample?
+                                        </button>
+                                     </>
+                                  )}
+                               </div>
+                            </div>
+                          </div>
+                        ) : activeSegment === 'group-purchase' ? null : (
                           ['S', 'M', 'L', 'XL'].map(size => (
                              <button onClick={() => setSelectedOption(size)} key={size} className={`w-12 h-12 shrink-0 border rounded-xl flex items-center justify-center font-semibold transition-all ${selectedOption === size ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400' : 'border-slate-700 bg-slate-800/50 text-slate-300 hover:border-emerald-500/50 hover:bg-slate-800'}`}>
                                {size}
@@ -1099,22 +1418,104 @@ export default function App() {
                        <img src={anim.img} className="w-full h-full object-cover" alt="" />
                      </motion.div>
                    ))}
-                   <motion.button 
-                     ref={addToCartButtonRef}
-                     whileTap={{ scale: 0.95 }}
-                     onClick={(e) => {
-                       if (activeSegment === 'arena' && (!currentItem || !currentItem.auctionStarted) && !isCurrentUserSeller) {
-                           e.preventDefault();
-                           alert("Auction has not started yet.");
-                           return;
-                       }
-                       handleAddToCartClick(e);
-                     }}
-                     className={`w-full ${activeSegment === 'arena' ? 'bg-gradient-to-r from-rose-500 to-red-600 shadow-rose-500/30' : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30'} text-white font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-xl hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed`}
-                     disabled={activeSegment === 'arena' && !isCurrentUserSeller && (!currentItem || !currentItem.auctionStarted)}
-                   >
-                     {activeSegment === 'arena' ? 'CONFIRM BID' : 'ADD TO CART'} <ChevronRight className="w-5 h-5" />
-                   </motion.button>
+                   {activeSegment === 'wholesale' ? (
+                     <div className="flex flex-col gap-2">
+                       <motion.button 
+                         whileTap={{ scale: 0.95 }}
+                         onClick={() => {
+                            let discount = 0;
+                            if (currentItem.bulkDiscountTiers) {
+                                for (const [tierQty, tierPct] of Object.entries(currentItem.bulkDiscountTiers)) {
+                                   if (selectedQuantity >= parseInt(tierQty)) {
+                                       const pct = typeof tierPct === 'number' ? tierPct : 0;
+                                       discount = Math.max(discount, pct);
+                                   }
+                                }
+                            }
+                            const baseTotal = currentItem.price * selectedQuantity;
+                            const finalTotal = baseTotal * ((100 - discount) / 100);
+                            const savings = baseTotal - finalTotal;
+                            const estShipping = Math.ceil(selectedQuantity * 1) * 100;
+                            const quoteText = `Wholesale Quote: ${currentItem.title}\nQty: ${selectedQuantity}\nBase: NPR ${baseTotal}\nDiscount: ${discount}%\nSavings: NPR ${savings.toFixed(2)}\nEst. Shipping: NPR ${estShipping}\n\nTotal Estimate: NPR ${(finalTotal + estShipping).toFixed(2)}`;
+                            
+                            navigator.clipboard.writeText(quoteText).then(() => {
+                               alert('Quote copied to clipboard! You can share it directly.');
+                            });
+                         }}
+                         className="w-full bg-slate-800/80 border border-slate-600 text-slate-300 font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 shadow-xl hover:bg-slate-700 transition-colors"
+                       >
+                         <Share2 className="w-4 h-4" /> GENERATE SHAREABLE QUOTE
+                       </motion.button>
+                       <div className="flex gap-2">
+                         <motion.button 
+                           whileTap={{ scale: 0.95 }}
+                           onClick={() => {
+                             if (!user) {
+                               setIsAuthOpen(true);
+                               return;
+                             }
+                             setIsCheckoutOpen(false);
+                             startChat(`I'd like to request a bulk wholesale quote for this item. I'm interested in ordering a minimum of ${selectedQuantity} units.`);
+                           }}
+                           className="flex-1 bg-slate-800 border border-slate-700 text-white font-black text-sm py-4 rounded-xl flex items-center justify-center gap-2 shadow-xl hover:bg-slate-700"
+                         >
+                           REQUEST QUOTE
+                         </motion.button>
+                         <motion.button 
+                           ref={addToCartButtonRef}
+                           whileTap={{ scale: 0.95 }}
+                           onClick={(e) => handleAddToCartClick(e)}
+                           className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 shadow-blue-500/30 text-white font-black text-sm py-4 rounded-xl flex items-center justify-center gap-2 shadow-xl hover:opacity-90 active:scale-95 transition-all"
+                         >
+                           BUY BULK <ChevronRight className="w-5 h-5" />
+                         </motion.button>
+                       </div>
+                     </div>
+                   ) : activeSegment === 'group-purchase' ? (
+                       <div className="flex flex-col gap-2">
+                         <motion.button 
+                           whileTap={{ scale: 0.95 }}
+                           onClick={() => {
+                              const shareText = `Join my group deal for ${currentItem.title}! If we reach ${currentItem.minPledgeCount} pledges, the price drops to NPR ${currentItem.pricePerPersonAtMin || currentItem.price}!`;
+                              navigator.clipboard.writeText(shareText).then(() => {
+                                 alert('Invite link copied! Share it on WhatsApp/Instagram.');
+                              });
+                           }}
+                           className="w-full bg-violet-900/40 border border-violet-500/30 text-violet-300 font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 shadow-xl hover:bg-violet-900/60 transition-colors"
+                         >
+                           <Share2 className="w-4 h-4" /> INVITE SQUAD
+                         </motion.button>
+                         <motion.button 
+                           ref={addToCartButtonRef}
+                           whileTap={{ scale: 0.95 }}
+                           onClick={(e) => {
+                               handleAddToCartClick(e);
+                               alert("You have successfully pledged! Your card will only be charged when the group target is met.");
+                               setIsCheckoutOpen(false);
+                           }}
+                           className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-600 shadow-violet-500/30 text-white font-black text-sm py-4 rounded-xl flex items-center justify-center gap-2 shadow-xl hover:opacity-90 active:scale-95 transition-all"
+                         >
+                           {getTransactionButtonText(currentItem.transactionType, 'PLEDGE NOW')} <ChevronRight className="w-5 h-5" />
+                         </motion.button>
+                       </div>
+                   ) : (
+                       <motion.button 
+                         ref={addToCartButtonRef}
+                         whileTap={{ scale: 0.95 }}
+                         onClick={(e) => {
+                           if (activeSegment === 'arena' && (!currentItem || !currentItem.auctionStarted) && !isCurrentUserSeller) {
+                               e.preventDefault();
+                               alert("Auction has not started yet.");
+                               return;
+                           }
+                           handleAddToCartClick(e);
+                         }}
+                         className={`w-full ${activeSegment === 'arena' ? 'bg-gradient-to-r from-rose-500 to-red-600 shadow-rose-500/30' : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30'} text-white font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-xl hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed`}
+                         disabled={activeSegment === 'arena' && !isCurrentUserSeller && (!currentItem || !currentItem.auctionStarted)}
+                       >
+                         {activeSegment === 'arena' ? 'CONFIRM BID' : 'ADD TO CART'} <ChevronRight className="w-5 h-5" />
+                       </motion.button>
+                   )}
                    <p className="text-center text-[10px] text-slate-500 mt-4 leading-relaxed tracking-wide uppercase font-bold">Secure encrypted {activeSegment === 'arena' ? 'escrow holding' : 'checkout'}</p>
                 </div>
               </motion.div>

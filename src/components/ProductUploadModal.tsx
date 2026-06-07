@@ -6,7 +6,8 @@ import { db } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
 import CameraCapture from './CameraCapture';
 
-import { DOMAINS } from '../lib/domains';
+import { useDomains } from '../contexts/DomainContext';
+import { DOMAINS, TRANSACTION_TYPES } from '../lib/domains';
 
 interface ProductUploadModalProps {
   isOpen: boolean;
@@ -16,12 +17,14 @@ interface ProductUploadModalProps {
 
 export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: ProductUploadModalProps) {
   const { user, activeProfile } = useAuth();
+  const { commissions } = useDomains();
   
   const [step, setStep] = useState(1);
   const totalSteps = 5;
 
   // Form State
-  const activeDomain = useMemo(() => DOMAINS.find(d => d.id === activeDomainId) || DOMAINS[0], [activeDomainId]);
+  const [selectedDomainId, setSelectedDomainId] = useState<string>(activeDomainId);
+  const activeDomain = useMemo(() => DOMAINS.find(d => d.id === selectedDomainId) || DOMAINS[0], [selectedDomainId]);
   const [segment, setSegment] = useState<string>(activeDomain.segments[0].id);
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -31,7 +34,16 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
   const [shortHeadline, setShortHeadline] = useState('');
   const [brand, setBrand] = useState('');
   const [category, setCategory] = useState('');
+  const [subcategory, setSubcategory] = useState('');
   const [tags, setTags] = useState('');
+
+  const activeCategories = useMemo(() => {
+    return activeDomain?.segments.find(s => s.id === segment)?.categories || [];
+  }, [activeDomain, segment]);
+
+  const activeSubcategories = useMemo(() => {
+    return activeCategories.find((c: any) => c.id === category || c.label === category)?.subcategories || [];
+  }, [activeCategories, category]);
 
   // Description & Specs
   const [description, setDescription] = useState('');
@@ -39,9 +51,18 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
   const [specifications, setSpecifications] = useState<Record<string, string>>({});
   
   // Sales & Shipping
+  const [transactionType, setTransactionType] = useState('buy');
+  const [priceModel, setPriceModel] = useState('one_time');
+  const [durationRequired, setDurationRequired] = useState(false);
+  const [depositRequired, setDepositRequired] = useState(false);
   const [price, setPrice] = useState('');
   const [discount, setDiscount] = useState('');
   const [stock, setStock] = useState('1');
+  const [minOrderQuantity, setMinOrderQuantity] = useState('1');
+  const [discountTiersInput, setDiscountTiersInput] = useState('10:5, 50:10');
+  const [minPledgeCount, setMinPledgeCount] = useState('10');
+  const [pricePerPersonAtMin, setPricePerPersonAtMin] = useState('');
+  const [expiryDays, setExpiryDays] = useState('7');
   const [processingTime, setProcessingTime] = useState('');
   const [deliveryCoverage, setDeliveryCoverage] = useState('');
   const [returnPolicy, setReturnPolicy] = useState('');
@@ -50,6 +71,93 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+
+  const domainLabels = useMemo(() => {
+    switch (selectedDomainId) {
+      case 'padhne':
+        return {
+          title: 'Course/Program/School Name *',
+          category: 'Grade Level / Type *',
+          brand: 'Institution / Board Name',
+          description: 'Syllabus / Details *',
+          price: 'Tuition / Fee (NPR) *',
+          stock: 'Available Seats / Intake *',
+        };
+      case 'khane':
+        return {
+          title: 'Item / Dish / Restaurant Name *',
+          category: 'Cuisine / Meal Type *',
+          brand: 'Chef / Restaurant Brand',
+          description: 'Ingredients / Menu Details *',
+          price: 'Price (NPR) *',
+          stock: 'Daily Availability *',
+        };
+      case 'garne':
+        return {
+          title: 'Job / Project / Concept Title *',
+          category: 'Industry / Sector *',
+          brand: 'Company / Organization Name',
+          description: 'Job Description / Proposal *',
+          price: 'Salary / Funding Goal (NPR) *',
+          stock: 'Openings / Available Positions *',
+        };
+      case 'jane':
+        return {
+          title: 'Destination / Tour / Hotel Name *',
+          category: 'Travel Type / Accommodation *',
+          brand: 'Travel Agency / Host Name',
+          description: 'Itinerary / Amenities Details *',
+          price: 'Package Price (NPR) *',
+          stock: 'Available Slots / Rooms *',
+        };
+      case 'line':
+        return {
+          title: 'Property / Service Name *',
+          category: 'Property Type / Service Type *',
+          brand: 'Agency / Provider Name',
+          description: 'Details / Inclusions *',
+          price: 'Price / Rent (NPR) *',
+          stock: 'Available Units / Availability *',
+        };
+      case 'lagaune':
+        return {
+          title: 'Apparel / Accessory Name *',
+          category: 'Wearable Category *',
+          brand: 'Brand',
+          description: 'Material & Fit Details *',
+          price: 'Price (NPR) *',
+          stock: 'Stock Quantity *',
+        };
+      case 'khelne':
+        return {
+          title: 'Game / Event / Venue Name *',
+          category: 'Sport / Genre *',
+          brand: 'Developer / Organizer',
+          description: 'Rules / Event Details *',
+          price: 'Ticket / Entry Fee (NPR) *',
+          stock: 'Available Tickets / Slots *',
+        };
+      case 'herne':
+        return {
+          title: 'Content / Series / Movie Title *',
+          category: 'Genre / Format *',
+          brand: 'Studio / Production House',
+          description: 'Synopsis / Plot *',
+          price: 'Rental / Subscription (NPR) *',
+          stock: 'Available Licenses (1 for unlim) *',
+        };
+      default:
+        return {
+          title: 'Title / Item Name *',
+          category: 'Category *',
+          brand: 'Brand',
+          description: 'Long Description *',
+          price: 'Price (NPR) *',
+          stock: 'Stock Quantity *',
+          delivery: 'Delivery Coverage',
+        };
+    }
+  }, [selectedDomainId]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -183,6 +291,7 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
         shortHeadline,
         brand,
         category,
+        subcategory,
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         description,
         longDescription: description,
@@ -200,9 +309,52 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
           brand,
           category
         },
-        price: parseFloat(price),
+        basePrice: parseFloat(price),
+        commissionRate: (() => {
+           let rate = commissions[segment] || 0;
+           if (category) {
+              const catId = category.toLowerCase().replace(/[^a-z0-9]/g, '-');
+              if (commissions[`cat_${catId}`] !== undefined) rate = commissions[`cat_${catId}`];
+              if (subcategory && commissions[`subcat_${catId}_${subcategory}`] !== undefined) {
+                 rate = commissions[`subcat_${catId}_${subcategory}`];
+              }
+           }
+           return rate;
+        })(),
+        price: parseFloat((parseFloat(price) * (1 + ((() => {
+           let rate = commissions[segment] || 0;
+           if (category) {
+              const catId = category.toLowerCase().replace(/[^a-z0-9]/g, '-');
+              if (commissions[`cat_${catId}`] !== undefined) rate = commissions[`cat_${catId}`];
+              if (subcategory && commissions[`subcat_${catId}_${subcategory}`] !== undefined) rate = commissions[`subcat_${catId}_${subcategory}`];
+           }
+           return rate;
+        })() / 100))).toFixed(2)),
         discount: parseFloat(discount) || 0,
         stock: parseInt(stock) || 1,
+        minOrderQuantity: segment === 'wholesale' ? parseInt(minOrderQuantity) || 1 : undefined,
+        bulkDiscountTiers: segment === 'wholesale' ? discountTiersInput.split(',').reduce((acc, pair) => {
+          const [qty, pct] = pair.split(':');
+          if (qty && pct) acc[qty.trim()] = parseFloat(pct.trim());
+          return acc;
+        }, {} as Record<string, number>) : undefined,
+        minPledgeCount: segment === 'group-purchase' ? parseInt(minPledgeCount) || 10 : undefined,
+        currentPledgeCount: segment === 'group-purchase' ? 0 : undefined,
+        basePricePerPersonAtMin: segment === 'group-purchase' ? parseFloat(pricePerPersonAtMin) || 0 : undefined,
+        pricePerPersonAtMin: segment === 'group-purchase' ? parseFloat(((parseFloat(pricePerPersonAtMin) || 0) * (1 + ((() => {
+           let rate = commissions[segment] || 0;
+           if (category) {
+              const catId = category.toLowerCase().replace(/[^a-z0-9]/g, '-');
+              if (commissions[`cat_${catId}`] !== undefined) rate = commissions[`cat_${catId}`];
+              if (subcategory && commissions[`subcat_${catId}_${subcategory}`] !== undefined) rate = commissions[`subcat_${catId}_${subcategory}`];
+           }
+           return rate;
+        })() / 100))).toFixed(2)) : undefined,
+        expiryDate: segment === 'group-purchase' ? new Date(Date.now() + 86400000 * (parseInt(expiryDays) || 7)).toISOString() : undefined,
+        transactionType,
+        priceModel,
+        durationRequired,
+        depositRequired,
         listingQualityScore,
         segment,
         uploadStatus: 'uploading',
@@ -317,8 +469,9 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
           setStep(1);
           setTitle(''); setShortHeadline(''); setBrand(''); setCategory(''); setTags('');
           setDescription(''); setKeyFeatures(''); setSpecifications({});
-          setPrice(''); setDiscount(''); setStock('1'); setProcessingTime(''); setDeliveryCoverage(''); setReturnPolicy('');
-          setSegment('feed'); setMediaFiles([]); setProgress(0);
+          setPrice(''); setDiscount(''); setStock('1'); setMinOrderQuantity('1'); setProcessingTime(''); setDeliveryCoverage(''); setReturnPolicy('');
+          setTransactionType('buy'); setPriceModel('one_time'); setDurationRequired(false); setDepositRequired(false);
+          setSegment(DOMAINS.find(d => d.id === activeDomainId)?.segments[0]?.id || DOMAINS[0].segments[0].id); setMediaFiles([]); setProgress(0);
           onClose();
         } catch (err) {
           console.error(err);
@@ -449,16 +602,36 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
               </div>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">2. Listing Type *</label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {activeDomain.segments.map(type => (
-                  <div key={type.id} onClick={() => {
-                    setSegment(type.id);
-                  }} className={`p-3 rounded-xl border cursor-pointer transition flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-2 ${segment === type.id ? `bg-${type.color}-500/20 border-${type.color}-500` : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}>
-                    <span className={`text-sm font-bold ${segment === type.id ? `text-${type.color}-400` : 'text-slate-300'}`}>{type.label}</span>
-                  </div>
-                ))}
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">2. Primary Domain *</label>
+                <select value={selectedDomainId} onChange={e => {
+                  const domain = DOMAINS.find(d => d.id === e.target.value) || DOMAINS[0];
+                  const newSegment = domain.segments[0];
+                  setSelectedDomainId(e.target.value);
+                  setSegment(newSegment.id);
+                  if (newSegment.defaultTransactionType) {
+                    setTransactionType(newSegment.defaultTransactionType);
+                  }
+                }} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 appearance-none">
+                  {DOMAINS.map(d => (
+                    <option key={d.id} value={d.id}>{d.name} ({d.label})</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">3. Segment Details *</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {activeDomain.segments.map(type => (
+                    <div key={type.id} onClick={() => {
+                      setSegment(type.id);
+                      if (type.defaultTransactionType) setTransactionType(type.defaultTransactionType);
+                    }} className={`p-3 rounded-xl border cursor-pointer transition flex flex-col items-center justify-center gap-2 text-center ${segment === type.id ? `bg-${type.color}-500/20 border-${type.color}-500` : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}>
+                      <span className={`text-sm font-bold ${segment === type.id ? `text-${type.color}-400` : 'text-slate-300'}`}>{type.label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -468,33 +641,49 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
           <div className="space-y-4">
             <h4 className="font-bold text-white mb-2">Basic Info</h4>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Title *</label>
-              <input type="text" required value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Vintage Leather Jacket" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+              <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">{domainLabels.title}</label>
+              <input type="text" required value={title} onChange={e => setTitle(e.target.value)} placeholder="Enter title or name..." className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
             </div>
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Short Headline</label>
               <input type="text" value={shortHeadline} onChange={e => setShortHeadline(e.target.value)} placeholder="Catchy one-liner..." className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Category *</label>
-                <select value={category} onChange={e => setCategory(e.target.value)} required className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 appearance-none">
-                  <option value="">Select...</option>
-                  <option value="Fashion">Fashion & Apparel</option>
-                  <option value="Electronics">Electronics</option>
-                  <option value="Home">Home & Living</option>
-                  <option value="Beauty">Beauty & Health</option>
-                  <option value="Other">Other</option>
-                </select>
+              <div className={activeSubcategories.length ? 'col-span-2 sm:col-span-1' : ''}>
+                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">{domainLabels.category}</label>
+                {activeCategories.length > 0 ? (
+                  <select required value={category} onChange={e => { setCategory(e.target.value); setSubcategory(''); }} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 appearance-none">
+                    <option value="" disabled>Select category...</option>
+                    {activeCategories.map((c: any) => (
+                      <option key={c.id} value={c.label}>{c.label}</option>
+                    ))}
+                    <option value="Other">Other</option>
+                  </select>
+                ) : (
+                  <input type="text" value={category} onChange={e => setCategory(e.target.value)} required placeholder="Primary category..." className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+                )}
               </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Brand</label>
-                <input type="text" value={brand} onChange={e => setBrand(e.target.value)} placeholder="Brand Name" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+              
+              {activeSubcategories.length > 0 && (
+                 <div className="col-span-2 sm:col-span-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Subcategory</label>
+                    <select value={subcategory} onChange={e => setSubcategory(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 appearance-none">
+                      <option value="">Select subcategory (Optional)</option>
+                      {activeSubcategories.map((s: string) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                 </div>
+              )}
+
+              <div className="col-span-2">
+                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">{domainLabels.brand}</label>
+                <input type="text" value={brand} onChange={e => setBrand(e.target.value)} placeholder="Brand/Issuer" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
               </div>
             </div>
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Search Tags (comma separated)</label>
-              <input type="text" value={tags} onChange={e => setTags(e.target.value)} placeholder="vintage, jacket, leather" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
+              <input type="text" value={tags} onChange={e => setTags(e.target.value)} placeholder="e.g. vintage, trendy, special" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
             </div>
           </div>
         );
@@ -508,11 +697,11 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
                </button>
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Long Description *</label>
+              <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">{domainLabels.description}</label>
               <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} placeholder="Detailed product description..." className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 resize-none" required />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Key Features / Benefits (1 per line)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Key Features / Highlights (1 per line)</label>
               <textarea value={keyFeatures} onChange={e => setKeyFeatures(e.target.value)} rows={3} placeholder="- Water resistant&#10;- Genuine Leather&#10;- 2 Year Warranty" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 resize-none" />
             </div>
             
@@ -549,19 +738,122 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
         return (
           <div className="space-y-4">
             <h4 className="font-bold text-white mb-2">Sales & Operations</h4>
-            <div className="grid grid-cols-2 gap-4">
+            
+            <div className="grid grid-cols-2 gap-4 mb-2">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Price (NPR) *</label>
-                <input type="number" required min="0" step="1" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 font-mono" />
+                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Transaction Type *</label>
+                <select value={transactionType} onChange={e => setTransactionType(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 appearance-none">
+                  {TRANSACTION_TYPES.filter(type => {
+                     const currentSegment = activeDomain.segments.find(s => s.id === segment);
+                     return !currentSegment?.allowedTransactionTypes || currentSegment.allowedTransactionTypes.includes(type.id);
+                  }).map(type => (
+                    <option key={type.id} value={type.id}>{type.label} ({type.buttonText})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Pricing Model *</label>
+                <select value={priceModel} onChange={e => setPriceModel(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 appearance-none">
+                  <option value="one_time">One-time (Fixed)</option>
+                  <option value="recurring">Recurring (Subscription)</option>
+                  <option value="per_hour">Per Hour</option>
+                  <option value="per_day">Per Day</option>
+                  <option value="per_person">Per Person</option>
+                  <option value="per_event">Per Event / Session</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+               <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                  <input type="checkbox" checked={durationRequired} onChange={e => setDurationRequired(e.target.checked)} className="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500 w-4 h-4" />
+                  Requires Duration Selection (e.g. Booking/Rent)
+               </label>
+               <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                  <input type="checkbox" checked={depositRequired} onChange={e => setDepositRequired(e.target.checked)} className="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500 w-4 h-4" />
+                  Requires Deposit
+               </label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+              <div className="col-span-2 bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+                <label className="text-xs font-bold text-slate-400 uppercase mb-3 block">{domainLabels.price} (Live Calculator)</label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                   <div className="flex-1">
+                      <span className="text-[10px] text-slate-500 uppercase font-bold mb-1 block">Your Price</span>
+                      <input type="number" required min="0" step="1" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 font-mono" />
+                   </div>
+                   <div className="flex items-center justify-center sm:pt-5">
+                      <span className="text-slate-500 font-black">+</span>
+                   </div>
+                   <div className="flex-1 bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 flex flex-col justify-center items-center mt-auto h-[46px] shadow-inner">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">Platform Fee</span>
+                      <span className="text-emerald-400 text-xs font-bold">{(() => {
+                         let rate = commissions[segment] || 0;
+                         if (category) {
+                            const catId = category.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                            if (commissions[`cat_${catId}`] !== undefined) rate = commissions[`cat_${catId}`];
+                            if (subcategory && commissions[`subcat_${catId}_${subcategory}`] !== undefined) rate = commissions[`subcat_${catId}_${subcategory}`];
+                         }
+                         return rate;
+                      })()}%</span>
+                   </div>
+                   <div className="flex items-center justify-center sm:pt-5">
+                      <span className="text-slate-500 font-black">=</span>
+                   </div>
+                   <div className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl py-3 px-4 flex flex-col justify-center items-center mt-auto h-[46px] shadow-lg shadow-emerald-500/20">
+                      <span className="text-[9px] text-emerald-100 font-black uppercase mb-0.5 opacity-80">Buyer Pays</span>
+                      <span className="text-white text-sm font-black tracking-tight">NPR {price ? (parseFloat(price) * (1 + ((() => {
+                         let rate = commissions[segment] || 0;
+                         if (category) {
+                            const catId = category.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                            if (commissions[`cat_${catId}`] !== undefined) rate = commissions[`cat_${catId}`];
+                            if (subcategory && commissions[`subcat_${catId}_${subcategory}`] !== undefined) rate = commissions[`subcat_${catId}_${subcategory}`];
+                         }
+                         return rate;
+                      })() / 100))).toFixed(0) : '0'}</span>
+                   </div>
+                </div>
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Discount (Optional)</label>
                 <input type="number" min="0" step="1" value={discount} onChange={e => setDiscount(e.target.value)} placeholder="0" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 font-mono" />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Stock Quantity *</label>
+                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">{domainLabels.stock}</label>
                 <input type="number" required min="1" step="1" value={stock} onChange={e => setStock(e.target.value)} placeholder="1" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 font-mono" />
               </div>
+              {segment === 'wholesale' && (
+                <>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Min. Order Qty (MOQ)</label>
+                    <input type="number" required min="1" step="1" value={minOrderQuantity} onChange={e => setMinOrderQuantity(e.target.value)} placeholder="1" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 font-mono" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Bulk Discount Tiers (Qty:Discount%)</label>
+                    <input type="text" value={discountTiersInput} onChange={e => setDiscountTiersInput(e.target.value)} placeholder="e.g. 10:5, 50:10" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 font-mono" />
+                    <p className="text-[10px] text-slate-500 mt-1">Format: Quantity:Percentage. Comma separated.</p>
+                  </div>
+                </>
+              )}
+              {segment === 'group-purchase' && (
+                <>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Min. Pledge Count (Target)</label>
+                    <input type="number" required min="2" step="1" value={minPledgeCount} onChange={e => setMinPledgeCount(e.target.value)} placeholder="10" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 font-mono" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Target Price (NPR)</label>
+                    <input type="number" required min="0" step="1" value={pricePerPersonAtMin} onChange={e => setPricePerPersonAtMin(e.target.value)} placeholder="e.g. 1500" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 font-mono" />
+                    <p className="text-[10px] text-slate-500 mt-1">Price when target is reached.</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Expiry Days</label>
+                    <input type="number" required min="1" step="1" value={expiryDays} onChange={e => setExpiryDays(e.target.value)} placeholder="7" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 font-mono" />
+                    <p className="text-[10px] text-slate-500 mt-1">Number of days before deal expires.</p>
+                  </div>
+                </>
+              )}
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Processing Time</label>
                  <select value={processingTime} onChange={e => setProcessingTime(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500 appearance-none">
@@ -574,7 +866,7 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
             </div>
             
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Delivery Coverage</label>
+              <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">{domainLabels.delivery || 'Delivery Coverage'}</label>
               <input type="text" value={deliveryCoverage} onChange={e => setDeliveryCoverage(e.target.value)} placeholder="e.g. Nationwide, Kathmandu Valley only" className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:border-emerald-500" />
             </div>
             <div>
@@ -629,8 +921,11 @@ export default function ProductUploadModal({ isOpen, onClose, activeDomainId }: 
                <div className="flex justify-between"><span className="text-slate-500">Title</span> <span className="text-white font-bold">{title || '-'}</span></div>
                <div className="flex justify-between"><span className="text-slate-500">Segment</span> <span className="text-white font-bold capitalize">{segment}</span></div>
                <div className="flex justify-between"><span className="text-slate-500">Price</span> <span className="text-white font-bold">NPR {price || '0'}</span></div>
-               <div className="flex justify-between"><span className="text-slate-500">Category</span> <span className="text-white font-bold">{category || '-'}</span></div>
+               <div className="flex justify-between"><span className="text-slate-500">Category</span> <span className="text-white font-bold">{category || '-'}{subcategory ? ` > ${subcategory}` : ''}</span></div>
                <div className="flex justify-between"><span className="text-slate-500">Stock</span> <span className="text-white font-bold">{stock} Unit(s)</span></div>
+               {segment === 'wholesale' && (
+                 <div className="flex justify-between"><span className="text-slate-500">Min. Order Qty</span> <span className="text-white font-bold">{minOrderQuantity} Unit(s)</span></div>
+               )}
             </div>
             
           </div>

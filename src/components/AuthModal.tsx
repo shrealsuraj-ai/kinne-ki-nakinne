@@ -16,7 +16,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'casual' | 'seller'>('casual');
   
-  // Casual user specific fields
+  // Seller specific fields
+  const [companyName, setCompanyName] = useState('');
+  const [companyType, setCompanyType] = useState('Retail');
+  const [panNo, setPanNo] = useState('');
+  const [companyLocation, setCompanyLocation] = useState('');
+  const [companyEmail, setCompanyEmail] = useState('');
   const [name, setName] = useState('');
   const [sex, setSex] = useState('Male');
   const [birthMonth, setBirthMonth] = useState('');
@@ -79,7 +84,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     e.preventDefault();
     setError(null);
 
-    if (!isLogin && role === 'casual') {
+    if (!isLogin) {
       if (!birthMonth || !birthDay || !birthYear) {
         setError('Please select a complete Date of Birth');
         return;
@@ -109,9 +114,22 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           address
         } : {};
 
+        const sellerData = role === 'seller' ? {
+          name,
+          sex,
+          dateOfBirth: `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`,
+          phone: phoneNumber, // phone used in seller schema
+          storeName: companyName, // company name maps to storeName
+          businessType: companyType,
+          companyLocation,
+          companyEmail,
+          panNo,
+        } : {};
+
         await setDoc(doc(db, collectionName, userCredential.user.uid), {
           ...baseData,
-          ...casualData
+          ...casualData,
+          ...sellerData
         });
       }
       onClose();
@@ -184,7 +202,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </div>
               )}
 
-              {!isLogin && role === 'casual' && (
+              {!isLogin && (
                 <>
                   <div>
                     <label className="text-xs font-bold text-slate-400 uppercase ml-1 mb-1 block">Full Name</label>
@@ -242,17 +260,85 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     />
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase ml-1 mb-1 block">Address</label>
-                    <textarea
-                      required
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors resize-none"
-                      placeholder="123 Main St, City, Country"
-                      rows={2}
-                    ></textarea>
-                  </div>
+                  {role === 'casual' && (
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 uppercase ml-1 mb-1 block">Address</label>
+                      <textarea
+                        required
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors resize-none"
+                        placeholder="123 Main St, City, Country"
+                        rows={2}
+                      ></textarea>
+                    </div>
+                  )}
+
+                  {role === 'seller' && (
+                    <>
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1 mb-1 block">Company Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                          placeholder="Acme Corp"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1 mb-1 block">Company Type</label>
+                        <select
+                          required
+                          value={companyType}
+                          onChange={(e) => setCompanyType(e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors appearance-none"
+                        >
+                          <option value="Retail">Retail</option>
+                          <option value="Wholesale">Wholesale</option>
+                          <option value="Manufacturer">Manufacturer</option>
+                          <option value="Services">Services</option>
+                          <option value="Real Estate Agent">Real Estate Agent</option>
+                          <option value="Educational Professional">Educational Professional</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1 mb-1 block">PAN Number</label>
+                        <input
+                          type="text"
+                          required
+                          value={panNo}
+                          onChange={(e) => setPanNo(e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                          placeholder="XXXXXXXXX"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1 mb-1 block">Company Location</label>
+                        <textarea
+                          required
+                          value={companyLocation}
+                          onChange={(e) => setCompanyLocation(e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors resize-none"
+                          placeholder="456 Commerce Blvd, Business City"
+                          rows={2}
+                        ></textarea>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1 mb-1 block">Company Email</label>
+                        <input
+                          type="email"
+                          required
+                          value={companyEmail}
+                          onChange={(e) => setCompanyEmail(e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                          placeholder="info@acmecorp.com"
+                        />
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
